@@ -19,7 +19,7 @@ class AppDatabase {
     final db = await dbFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON;');
           await database.execute('PRAGMA journal_mode = WAL;');
@@ -31,6 +31,9 @@ class AppDatabase {
               name TEXT NOT NULL UNIQUE,
               current_stock INTEGER NOT NULL CHECK (current_stock >= 0),
               current_price REAL NOT NULL CHECK (current_price >= 0),
+              hsn_code TEXT,
+              packing_weight REAL,
+              packing_unit TEXT NOT NULL DEFAULT 'KG',
               barcode TEXT,
               low_stock_threshold INTEGER,
               created_at TEXT NOT NULL,
@@ -100,6 +103,19 @@ class AppDatabase {
             'value': '0',
           });
         },
+        onUpgrade: (database, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            await database.execute(
+              'ALTER TABLE items ADD COLUMN hsn_code TEXT;',
+            );
+            await database.execute(
+              'ALTER TABLE items ADD COLUMN packing_weight REAL;',
+            );
+            await database.execute(
+              "ALTER TABLE items ADD COLUMN packing_unit TEXT NOT NULL DEFAULT 'KG';",
+            );
+          }
+        },
       ),
     );
 
@@ -138,26 +154,43 @@ class AppDatabase {
 
   Future<void> createItem({
     required String name,
-    required int openingQuantity,
     required double currentPrice,
+    required String hsnCode,
+    required double packingWeight,
+    required String packingUnit,
   }) async {
     if (name.trim().isEmpty) {
       throw ArgumentError('Item name cannot be empty.');
     }
-    if (openingQuantity < 0) {
-      throw ArgumentError('Opening quantity cannot be negative.');
-    }
     if (currentPrice < 0) {
       throw ArgumentError('Current price cannot be negative.');
     }
+    if (hsnCode.trim().isEmpty) {
+      throw ArgumentError('HSN code cannot be empty.');
+    }
+    if (int.tryParse(hsnCode.trim()) == null) {
+      throw ArgumentError('HSN code must be numeric.');
+    }
+    if (packingWeight <= 0) {
+      throw ArgumentError('Packing weight must be greater than zero.');
+    }
+    if (!(packingUnit == 'KG' ||
+        packingUnit == 'Liter' ||
+        packingUnit == 'ML')) {
+      throw ArgumentError('Invalid packing unit.');
+    }
 
     final now = _nowIso();
+    const openingQuantity = 0;
 
     await _db.transaction((txn) async {
       final itemId = await txn.insert('items', {
         'name': name.trim(),
         'current_stock': openingQuantity,
         'current_price': currentPrice,
+        'hsn_code': hsnCode.trim(),
+        'packing_weight': packingWeight,
+        'packing_unit': packingUnit,
         'created_at': now,
         'updated_at': now,
       });

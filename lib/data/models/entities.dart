@@ -26,6 +26,9 @@ class ItemRecord {
     required this.name,
     required this.currentStock,
     required this.currentPrice,
+    this.hsnCode,
+    this.packingWeight,
+    this.packingUnit,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -34,6 +37,9 @@ class ItemRecord {
   final String name;
   final int currentStock;
   final double currentPrice;
+  final String? hsnCode;
+  final double? packingWeight;
+  final String? packingUnit;
   final String createdAt;
   final String updatedAt;
 
@@ -43,6 +49,11 @@ class ItemRecord {
       name: _string(map['name']),
       currentStock: _intValue(map['current_stock']),
       currentPrice: _doubleValue(map['current_price']),
+      hsnCode: _nullableString(map['hsn_code']),
+      packingWeight: map['packing_weight'] == null
+          ? null
+          : _doubleValue(map['packing_weight']),
+      packingUnit: _nullableString(map['packing_unit']),
       createdAt: _string(map['created_at']),
       updatedAt: _string(map['updated_at']),
     );

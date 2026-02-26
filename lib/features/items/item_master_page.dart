@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:stock_manager/data/models/entities.dart';
 import 'package:stock_manager/data/services/app_database.dart';
 import 'package:stock_manager/utils/formatters.dart';
 import 'package:stock_manager/widgets/desktop_page_header.dart';
+import 'package:stock_manager/widgets/right_slide_over_panel.dart';
 
 class ItemMasterPage extends StatefulWidget {
   const ItemMasterPage({super.key, required this.database});
@@ -15,6 +17,8 @@ class ItemMasterPage extends StatefulWidget {
 }
 
 class _ItemMasterPageState extends State<ItemMasterPage> {
+  static const List<String> _packingUnits = ['KG', 'Liter', 'ML'];
+
   bool _loading = true;
   String? _error;
   List<ItemRecord> _items = const [];
@@ -57,79 +61,200 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
 
   Future<void> _showAddItemDialog() async {
     final nameController = TextEditingController();
-    final openingQtyController = TextEditingController(text: '0');
+    final hsnCodeController = TextEditingController();
+    final packingWeightController = TextEditingController();
     final priceController = TextEditingController();
+    var selectedUnit = 'KG';
 
-    final created = await showDialog<bool>(
+    bool isFormValid() {
+      if (nameController.text.trim().isEmpty) {
+        return false;
+      }
+      if (int.tryParse(hsnCodeController.text.trim()) == null) {
+        return false;
+      }
+      final packingWeight = double.tryParse(
+        packingWeightController.text.trim(),
+      );
+      if (packingWeight == null || packingWeight <= 0) {
+        return false;
+      }
+      final price = double.tryParse(priceController.text.trim());
+      if (price == null || price < 0) {
+        return false;
+      }
+      return _packingUnits.contains(selectedUnit);
+    }
+
+    final formData = await showRightSlideOverPanel<_AddItemFormData>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Item'),
-          content: SizedBox(
-            width: 360,
+      child: StatefulBuilder(
+        builder: (context, setStatePanel) {
+          final canCreate = isFormValid();
+          return Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Item Name'),
+                const Text(
+                  'Add Item',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: openingQtyController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Opening Quantity',
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: nameController,
+                          onChanged: (_) => setStatePanel(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Item Name',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: hsnCodeController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setStatePanel(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'HSN Code',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: packingWeightController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.allow(
+                                    RegExp(r'[0-9.]'),
+                                  ),
+                                ],
+                                onChanged: (_) => setStatePanel(() {}),
+                                decoration: const InputDecoration(
+                                  labelText: 'Packing Weight',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 130,
+                              child: DropdownButtonFormField<String>(
+                                initialValue: selectedUnit,
+                                decoration: const InputDecoration(
+                                  labelText: 'Unit',
+                                ),
+                                items: _packingUnits
+                                    .map(
+                                      (unit) => DropdownMenuItem<String>(
+                                        value: unit,
+                                        child: Text(unit),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) {
+                                    return;
+                                  }
+                                  setStatePanel(() {
+                                    selectedUnit = value;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: priceController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[0-9.]'),
+                            ),
+                          ],
+                          onChanged: (_) => setStatePanel(() {}),
+                          decoration: const InputDecoration(
+                            labelText: 'Unit Price',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: priceController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: 'Current Price'),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: canCreate
+                          ? () {
+                              Navigator.pop(
+                                context,
+                                _AddItemFormData(
+                                  name: nameController.text.trim(),
+                                  hsnCode: hsnCodeController.text.trim(),
+                                  packingWeight: double.parse(
+                                    packingWeightController.text.trim(),
+                                  ),
+                                  packingUnit: selectedUnit,
+                                  unitPrice: double.parse(
+                                    priceController.text.trim(),
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
+                      child: const Text('Create'),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
+          );
+        },
+      ),
     );
 
-    if (created != true) {
-      return;
-    }
-
-    final itemName = nameController.text.trim();
-    final openingQty = int.tryParse(openingQtyController.text.trim());
-    final currentPrice = double.tryParse(priceController.text.trim());
-
-    if (itemName.isEmpty || openingQty == null || currentPrice == null) {
-      _showMessage('Enter valid item name, quantity, and price.');
-      return;
-    }
-
     try {
+      if (formData == null) {
+        return;
+      }
+
       await widget.database.createItem(
-        name: itemName,
-        openingQuantity: openingQty,
-        currentPrice: currentPrice,
+        name: formData.name,
+        currentPrice: formData.unitPrice,
+        hsnCode: formData.hsnCode,
+        packingWeight: formData.packingWeight,
+        packingUnit: formData.packingUnit,
       );
       _showMessage('Item created.');
       await _load();
     } catch (e) {
       _showMessage('Failed to create item: $e');
+    } finally {
+      nameController.dispose();
+      hsnCodeController.dispose();
+      packingWeightController.dispose();
+      priceController.dispose();
     }
   }
 
@@ -335,4 +460,20 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
       ),
     );
   }
+}
+
+class _AddItemFormData {
+  const _AddItemFormData({
+    required this.name,
+    required this.hsnCode,
+    required this.packingWeight,
+    required this.packingUnit,
+    required this.unitPrice,
+  });
+
+  final String name;
+  final String hsnCode;
+  final double packingWeight;
+  final String packingUnit;
+  final double unitPrice;
 }
