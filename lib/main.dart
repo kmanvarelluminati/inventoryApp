@@ -156,22 +156,7 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
               ),
             ),
             Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                    child: const Text(
-                      'Inventory and Billing System',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Expanded(child: _buildPage()),
-                ],
-              ),
+              child: Column(children: [Expanded(child: _buildPage())]),
             ),
           ],
         ),
@@ -419,32 +404,25 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const Text(
-                  'Item Master',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.icon(
-                  onPressed: _showAddItemDialog,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Item'),
-                ),
-              ],
-            ),
+          DesktopPageHeader(
+            title: 'Item Master',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                onPressed: _showAddItemDialog,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Item'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -721,34 +699,27 @@ class _BillingPageState extends State<BillingPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const Text(
-                  'Multi-Item Billing',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          DesktopPageHeader(
+            title: 'Billing',
+            actions: [
+              Chip(
+                label: Text(
+                  widget.manualPriceOverrideEnabled
+                      ? 'Manual Price Override: Enabled'
+                      : 'Manual Price Override: Disabled',
                 ),
-                const SizedBox(width: 16),
-                Chip(
-                  label: Text(
-                    widget.manualPriceOverrideEnabled
-                        ? 'Manual Price Override: Enabled'
-                        : 'Manual Price Override: Disabled',
-                  ),
-                ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: _loadItems,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh Stock'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 16),
+              OutlinedButton.icon(
+                onPressed: _loadItems,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh Stock'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -1080,57 +1051,50 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const Text(
-                  'Sales History',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          DesktopPageHeader(
+            title: 'Sales',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _pickStartDate,
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  _startDate == null
+                      ? 'Start Date'
+                      : 'Start: ${formatDate(_startDate!)}',
                 ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: _pickStartDate,
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text(
-                    _startDate == null
-                        ? 'Start Date'
-                        : 'Start: ${formatDate(_startDate!)}',
-                  ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _pickEndDate,
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  _endDate == null
+                      ? 'End Date'
+                      : 'End: ${formatDate(_endDate!)}',
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _pickEndDate,
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text(
-                    _endDate == null
-                        ? 'End Date'
-                        : 'End: ${formatDate(_endDate!)}',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _startDate = null;
-                      _endDate = null;
-                    });
-                    _load();
-                  },
-                  child: const Text('Clear Filter'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _startDate = null;
+                    _endDate = null;
+                  });
+                  _load();
+                },
+                child: const Text('Clear Filter'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -1221,55 +1185,48 @@ class _MovementHistoryPageState extends State<MovementHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const Text(
-                  'Item Movement History (Audit Trail)',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(width: 16),
-                SizedBox(
-                  width: 320,
-                  child: DropdownButtonFormField<int?>(
-                    initialValue: _filterItemId,
-                    decoration: const InputDecoration(
-                      labelText: 'Filter by Item',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<int?>(
-                        value: null,
-                        child: Text('All Items'),
-                      ),
-                      ..._items.map(
-                        (item) => DropdownMenuItem<int?>(
-                          value: item.id,
-                          child: Text(item.name),
-                        ),
-                      ),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _filterItemId = value;
-                      });
-                      _load();
-                    },
+          DesktopPageHeader(
+            title: 'Item Movements',
+            actions: [
+              SizedBox(
+                width: 320,
+                child: DropdownButtonFormField<int?>(
+                  initialValue: _filterItemId,
+                  decoration: const InputDecoration(
+                    labelText: 'Filter by Item',
+                    border: OutlineInputBorder(),
                   ),
+                  items: [
+                    const DropdownMenuItem<int?>(
+                      value: null,
+                      child: Text('All Items'),
+                    ),
+                    ..._items.map(
+                      (item) => DropdownMenuItem<int?>(
+                        value: item.id,
+                        child: Text(item.name),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _filterItemId = value;
+                    });
+                    _load();
+                  },
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -1436,57 +1393,50 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                const Text(
-                  'Daily Summary and Reporting',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          DesktopPageHeader(
+            title: 'Reports',
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _pickStartDate,
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  _startDate == null
+                      ? 'Start Date'
+                      : 'Start: ${formatDate(_startDate!)}',
                 ),
-                const SizedBox(width: 16),
-                OutlinedButton.icon(
-                  onPressed: _pickStartDate,
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text(
-                    _startDate == null
-                        ? 'Start Date'
-                        : 'Start: ${formatDate(_startDate!)}',
-                  ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _pickEndDate,
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  _endDate == null
+                      ? 'End Date'
+                      : 'End: ${formatDate(_endDate!)}',
                 ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _pickEndDate,
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text(
-                    _endDate == null
-                        ? 'End Date'
-                        : 'End: ${formatDate(_endDate!)}',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () {
-                    setState(() {
-                      _startDate = null;
-                      _endDate = null;
-                    });
-                    _load();
-                  },
-                  child: const Text('Clear Filter'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Refresh'),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _startDate = null;
+                    _endDate = null;
+                  });
+                  _load();
+                },
+                child: const Text('Clear Filter'),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -1552,6 +1502,33 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
   }
 }
 
+class DesktopPageHeader extends StatelessWidget {
+  const DesktopPageHeader({
+    super.key,
+    required this.title,
+    this.actions = const [],
+  });
+
+  final String title;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          ),
+          if (actions.isNotEmpty) ...[const SizedBox(width: 16), ...actions],
+        ],
+      ),
+    );
+  }
+}
+
 class _SummaryCard extends StatelessWidget {
   const _SummaryCard({required this.label, required this.value});
 
@@ -1592,14 +1569,11 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Settings',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
+          const DesktopPageHeader(title: 'Settings'),
           const SizedBox(height: 12),
           Card(
             child: SwitchListTile(
