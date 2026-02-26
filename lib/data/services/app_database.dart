@@ -154,6 +154,7 @@ class AppDatabase {
 
   Future<void> createItem({
     required String name,
+    required int openingQuantity,
     required double currentPrice,
     required String hsnCode,
     required double packingWeight,
@@ -161,6 +162,9 @@ class AppDatabase {
   }) async {
     if (name.trim().isEmpty) {
       throw ArgumentError('Item name cannot be empty.');
+    }
+    if (openingQuantity < 0) {
+      throw ArgumentError('Opening quantity cannot be negative.');
     }
     if (currentPrice < 0) {
       throw ArgumentError('Current price cannot be negative.');
@@ -181,7 +185,6 @@ class AppDatabase {
     }
 
     final now = _nowIso();
-    const openingQuantity = 0;
 
     await _db.transaction((txn) async {
       final itemId = await txn.insert('items', {
@@ -208,6 +211,103 @@ class AppDatabase {
         'running_balance': openingQuantity,
         'created_at': now,
       });
+    });
+  }
+
+  Future<void> updateItemDetails({
+    required int itemId,
+    required String name,
+    required String hsnCode,
+    required double packingWeight,
+    required String packingUnit,
+    required double currentPrice,
+    required int quantity,
+  }) async {
+    if (name.trim().isEmpty) {
+      throw ArgumentError('Item name cannot be empty.');
+    }
+    if (hsnCode.trim().isEmpty || int.tryParse(hsnCode.trim()) == null) {
+      throw ArgumentError('HSN code must be numeric.');
+    }
+    if (packingWeight <= 0) {
+      throw ArgumentError('Packing weight must be greater than zero.');
+    }
+    if (currentPrice < 0) {
+      throw ArgumentError('Current price cannot be negative.');
+    }
+    if (quantity < 0) {
+      throw ArgumentError('Quantity cannot be negative.');
+    }
+    if (!(packingUnit == 'KG' ||
+        packingUnit == 'Liter' ||
+        packingUnit == 'ML')) {
+      throw ArgumentError('Invalid packing unit.');
+    }
+
+    final now = _nowIso();
+
+    await _db.transaction((txn) async {
+      final item = await _getItemById(txn, itemId);
+      if (item == null) {
+        throw StateError('Item not found.');
+      }
+
+      final currentStock = item.currentStock;
+      final stockDelta = quantity - currentStock;
+      final oldPrice = item.currentPrice;
+      final priceChanged = oldPrice != currentPrice;
+
+      final updateCount = await txn.update(
+        'items',
+        {
+          'name': name.trim(),
+          'current_stock': quantity,
+          'current_price': currentPrice,
+          'hsn_code': hsnCode.trim(),
+          'packing_weight': packingWeight,
+          'packing_unit': packingUnit,
+          'updated_at': now,
+        },
+        where: 'id = ? AND current_stock = ?',
+        whereArgs: [itemId, currentStock],
+      );
+      if (updateCount != 1) {
+        throw StateError('Concurrent stock update detected.');
+      }
+
+      if (stockDelta != 0) {
+        await txn.insert('stock_ledger', {
+          'item_id': itemId,
+          'action_type': stockDelta > 0
+              ? StockAction.stockAdded
+              : StockAction.stockAdjustment,
+          'qty_delta': stockDelta,
+          'prev_stock': currentStock,
+          'new_stock': quantity,
+          'prev_price': oldPrice,
+          'new_price': currentPrice,
+          'ref_type': 'item_edit',
+          'ref_id': 'ITEM-$itemId',
+          'running_balance': quantity,
+          'created_at': now,
+        });
+      }
+
+      if (priceChanged) {
+        await txn.insert('stock_ledger', {
+          'item_id': itemId,
+          'action_type': StockAction.priceUpdated,
+          'qty_delta': 0,
+          'prev_stock': quantity,
+          'new_stock': quantity,
+          'prev_price': oldPrice,
+          'new_price': currentPrice,
+          'ref_type': 'price',
+          'ref_id': 'PRC-${DateTime.now().millisecondsSinceEpoch}',
+          'running_balance': quantity,
+          'created_at': now,
+        });
+      }
     });
   }
 

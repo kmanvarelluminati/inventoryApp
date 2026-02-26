@@ -59,18 +59,35 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
     }
   }
 
-  Future<void> _showAddItemDialog() async {
-    final nameController = TextEditingController();
-    final hsnCodeController = TextEditingController();
-    final packingWeightController = TextEditingController();
-    final priceController = TextEditingController();
-    var selectedUnit = 'KG';
+  Future<void> _showItemPanel({ItemRecord? item}) async {
+    final isEditMode = item != null;
+    final nameController = TextEditingController(text: item?.name ?? '');
+    final hsnCodeController = TextEditingController(text: item?.hsnCode ?? '');
+    final packingWeightController = TextEditingController(
+      text: item?.packingWeight?.toString() ?? '',
+    );
+    final priceController = TextEditingController(
+      text: item != null ? item.currentPrice.toStringAsFixed(2) : '',
+    );
+    final quantityController = TextEditingController(
+      text: item?.currentStock.toString() ?? '0',
+    );
+    var selectedUnit = _packingUnits.contains(item?.packingUnit)
+        ? item!.packingUnit!
+        : 'KG';
 
     bool isFormValid() {
       if (nameController.text.trim().isEmpty) {
         return false;
       }
       if (int.tryParse(hsnCodeController.text.trim()) == null) {
+        return false;
+      }
+      if (int.tryParse(quantityController.text.trim()) == null) {
+        return false;
+      }
+      final quantity = int.parse(quantityController.text.trim());
+      if (quantity < 0) {
         return false;
       }
       final packingWeight = double.tryParse(
@@ -86,19 +103,26 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
       return _packingUnits.contains(selectedUnit);
     }
 
-    final formData = await showRightSlideOverPanel<_AddItemFormData>(
+    final formData = await showRightSlideOverPanel<_ItemFormData>(
       context: context,
       child: StatefulBuilder(
         builder: (context, setStatePanel) {
-          final canCreate = isFormValid();
+          final canSubmit = isFormValid();
+          final quantityLabel = isEditMode
+              ? 'Current Quantity'
+              : 'Opening Quantity';
+
           return Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text(
-                  'Add Item',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
+                Text(
+                  isEditMode ? 'Edit Item' : 'Add Item',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Expanded(
@@ -124,6 +148,16 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                           decoration: const InputDecoration(
                             labelText: 'HSN Code',
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: quantityController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
+                          onChanged: (_) => setStatePanel(() {}),
+                          decoration: InputDecoration(labelText: quantityLabel),
                         ),
                         const SizedBox(height: 12),
                         Row(
@@ -205,13 +239,16 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      onPressed: canCreate
+                      onPressed: canSubmit
                           ? () {
                               Navigator.pop(
                                 context,
-                                _AddItemFormData(
+                                _ItemFormData(
                                   name: nameController.text.trim(),
                                   hsnCode: hsnCodeController.text.trim(),
+                                  quantity: int.parse(
+                                    quantityController.text.trim(),
+                                  ),
                                   packingWeight: double.parse(
                                     packingWeightController.text.trim(),
                                   ),
@@ -223,7 +260,7 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                               );
                             }
                           : null,
-                      child: const Text('Create'),
+                      child: Text(isEditMode ? 'Save' : 'Create'),
                     ),
                   ],
                 ),
@@ -239,124 +276,37 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
         return;
       }
 
-      await widget.database.createItem(
-        name: formData.name,
-        currentPrice: formData.unitPrice,
-        hsnCode: formData.hsnCode,
-        packingWeight: formData.packingWeight,
-        packingUnit: formData.packingUnit,
-      );
-      _showMessage('Item created.');
+      if (item == null) {
+        await widget.database.createItem(
+          name: formData.name,
+          openingQuantity: formData.quantity,
+          currentPrice: formData.unitPrice,
+          hsnCode: formData.hsnCode,
+          packingWeight: formData.packingWeight,
+          packingUnit: formData.packingUnit,
+        );
+        _showMessage('Item created.');
+      } else {
+        await widget.database.updateItemDetails(
+          itemId: item.id,
+          name: formData.name,
+          hsnCode: formData.hsnCode,
+          packingWeight: formData.packingWeight,
+          packingUnit: formData.packingUnit,
+          currentPrice: formData.unitPrice,
+          quantity: formData.quantity,
+        );
+        _showMessage('Item updated.');
+      }
       await _load();
     } catch (e) {
-      _showMessage('Failed to create item: $e');
+      _showMessage('Failed to save item: $e');
     } finally {
       nameController.dispose();
       hsnCodeController.dispose();
+      quantityController.dispose();
       packingWeightController.dispose();
       priceController.dispose();
-    }
-  }
-
-  Future<void> _showAddStockDialog(ItemRecord item) async {
-    final quantityController = TextEditingController();
-
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Add Stock: ${item.name}'),
-          content: SizedBox(
-            width: 360,
-            child: TextField(
-              controller: quantityController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Quantity to Add'),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (submitted != true) {
-      return;
-    }
-
-    final quantity = int.tryParse(quantityController.text.trim());
-    if (quantity == null || quantity <= 0) {
-      _showMessage('Enter a valid positive quantity.');
-      return;
-    }
-
-    try {
-      await widget.database.addStock(itemId: item.id, quantity: quantity);
-      _showMessage('Stock updated.');
-      await _load();
-    } catch (e) {
-      _showMessage('Failed to add stock: $e');
-    }
-  }
-
-  Future<void> _showUpdatePriceDialog(ItemRecord item) async {
-    final priceController = TextEditingController(
-      text: item.currentPrice.toStringAsFixed(2),
-    );
-
-    final submitted = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Update Price: ${item.name}'),
-          content: SizedBox(
-            width: 360,
-            child: TextField(
-              controller: priceController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              decoration: const InputDecoration(labelText: 'New Price'),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Update'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (submitted != true) {
-      return;
-    }
-
-    final price = double.tryParse(priceController.text.trim());
-    if (price == null || price < 0) {
-      _showMessage('Enter a valid price.');
-      return;
-    }
-
-    try {
-      await widget.database.updateItemPrice(itemId: item.id, newPrice: price);
-      _showMessage('Price updated for future sales.');
-      await _load();
-    } catch (e) {
-      _showMessage('Failed to update price: $e');
     }
   }
 
@@ -364,6 +314,27 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String _formatPacking(ItemRecord item) {
+    final weight = item.packingWeight;
+    final unit = item.packingUnit;
+    if (weight == null || unit == null || unit.isEmpty) {
+      return '-';
+    }
+    return '${weight.toStringAsFixed(weight % 1 == 0 ? 0 : 2)} $unit';
+  }
+
+  Widget _headerCell(String text, {TextAlign align = TextAlign.left}) {
+    return Text(
+      text,
+      textAlign: align,
+      style: const TextStyle(fontWeight: FontWeight.w600),
+    );
+  }
+
+  Widget _bodyCell(String text, {TextAlign align = TextAlign.left}) {
+    return Text(text, textAlign: align);
   }
 
   @override
@@ -383,7 +354,7 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
-                onPressed: _showAddItemDialog,
+                onPressed: () => _showItemPanel(),
                 icon: const Icon(Icons.add),
                 label: const Text('Add Item'),
               ),
@@ -398,62 +369,96 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
             const Expanded(child: Center(child: Text('No items found.')))
           else
             Expanded(
-              child: ListView.builder(
-                itemCount: _items.length,
-                itemBuilder: (context, index) {
-                  final item = _items[index];
-                  return Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
+                          Expanded(flex: 3, child: _headerCell('Name')),
+                          Expanded(flex: 2, child: _headerCell('HSN')),
+                          Expanded(flex: 2, child: _headerCell('Packing')),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Wrap(
-                                  spacing: 14,
-                                  runSpacing: 4,
-                                  children: [
-                                    Text('Stock: ${item.currentStock}'),
-                                    Text(
-                                      'Price: ${formatCurrency(item.currentPrice)}',
-                                    ),
-                                    Text(
-                                      'Updated: ${formatDateTime(item.updatedAt)}',
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            flex: 2,
+                            child: _headerCell(
+                              'Unit Price',
+                              align: TextAlign.right,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Wrap(
-                            spacing: 8,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () => _showAddStockDialog(item),
-                                child: const Text('Add Stock'),
-                              ),
-                              OutlinedButton(
-                                onPressed: () => _showUpdatePriceDialog(item),
-                                child: const Text('Update Price'),
-                              ),
-                            ],
+                          Expanded(
+                            flex: 2,
+                            child: _headerCell(
+                              'Actions',
+                              align: TextAlign.center,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                    const Divider(height: 1),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: _items.length,
+                        separatorBuilder: (_, index) =>
+                            const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = _items[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(flex: 3, child: _bodyCell(item.name)),
+                                Expanded(
+                                  flex: 2,
+                                  child: _bodyCell(item.hsnCode ?? '-'),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: _bodyCell(_formatPacking(item)),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: _bodyCell(
+                                    formatCurrency(item.currentPrice),
+                                    align: TextAlign.right,
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Align(
+                                    alignment: Alignment.center,
+                                    child: SizedBox(
+                                      height: 30,
+                                      child: OutlinedButton(
+                                        onPressed: () =>
+                                            _showItemPanel(item: item),
+                                        child: const Text('Edit'),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -462,10 +467,11 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
   }
 }
 
-class _AddItemFormData {
-  const _AddItemFormData({
+class _ItemFormData {
+  const _ItemFormData({
     required this.name,
     required this.hsnCode,
+    required this.quantity,
     required this.packingWeight,
     required this.packingUnit,
     required this.unitPrice,
@@ -473,6 +479,7 @@ class _AddItemFormData {
 
   final String name;
   final String hsnCode;
+  final int quantity;
   final double packingWeight;
   final String packingUnit;
   final double unitPrice;
