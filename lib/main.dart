@@ -105,110 +105,76 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
         useMaterial3: true,
       ),
-      home: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth < 980) {
-            return Scaffold(
-              appBar: AppBar(title: const Text('Inventory and Billing System')),
-              body: _buildPage(),
-              bottomNavigationBar: NavigationBar(
+      home: Scaffold(
+        body: Row(
+          children: [
+            Container(
+              width: 240,
+              decoration: BoxDecoration(
+                border: Border(
+                  right: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              child: NavigationRail(
                 selectedIndex: _selectedIndex,
+                extended: true,
+                minExtendedWidth: 240,
                 onDestinationSelected: (value) {
                   setState(() {
                     _selectedIndex = value;
                   });
                 },
+                labelType: NavigationRailLabelType.none,
                 destinations: const [
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.inventory_2_outlined),
-                    label: 'Items',
+                    label: Text('Items'),
                   ),
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.receipt_long_outlined),
-                    label: 'Billing',
+                    label: Text('Billing'),
                   ),
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.history),
-                    label: 'Sales',
+                    label: Text('Sales'),
                   ),
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.timeline_outlined),
-                    label: 'Movements',
+                    label: Text('Movements'),
                   ),
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.summarize_outlined),
-                    label: 'Reports',
+                    label: Text('Reports'),
                   ),
-                  NavigationDestination(
+                  NavigationRailDestination(
                     icon: Icon(Icons.settings_outlined),
-                    label: 'Settings',
+                    label: Text('Settings'),
                   ),
                 ],
               ),
-            );
-          }
-
-          return Scaffold(
-            body: Row(
-              children: [
-                NavigationRail(
-                  selectedIndex: _selectedIndex,
-                  onDestinationSelected: (value) {
-                    setState(() {
-                      _selectedIndex = value;
-                    });
-                  },
-                  labelType: NavigationRailLabelType.all,
-                  destinations: const [
-                    NavigationRailDestination(
-                      icon: Icon(Icons.inventory_2_outlined),
-                      label: Text('Items'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.receipt_long_outlined),
-                      label: Text('Billing'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.history),
-                      label: Text('Sales'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.timeline_outlined),
-                      label: Text('Movements'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.summarize_outlined),
-                      label: Text('Reports'),
-                    ),
-                    NavigationRailDestination(
-                      icon: Icon(Icons.settings_outlined),
-                      label: Text('Settings'),
-                    ),
-                  ],
-                ),
-                const VerticalDivider(width: 1),
-                Expanded(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                        child: const Text(
-                          'Inventory and Billing System',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: _buildPage()),
-                    ],
-                  ),
-                ),
-              ],
             ),
-          );
-        },
+            Expanded(
+              child: Column(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: const Text(
+                      'Inventory and Billing System',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: _buildPage()),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -457,25 +423,28 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Item Master',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _showAddItemDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Item'),
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Item Master',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: _showAddItemDialog,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Item'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -756,27 +725,30 @@ class _BillingPageState extends State<BillingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Multi-Item Billing',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 16),
-              Chip(
-                label: Text(
-                  widget.manualPriceOverrideEnabled
-                      ? 'Manual Price Override: Enabled'
-                      : 'Manual Price Override: Disabled',
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Multi-Item Billing',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-              ),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: _loadItems,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh Stock'),
-              ),
-            ],
+                const SizedBox(width: 16),
+                Chip(
+                  label: Text(
+                    widget.manualPriceOverrideEnabled
+                        ? 'Manual Price Override: Enabled'
+                        : 'Manual Price Override: Disabled',
+                  ),
+                ),
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: _loadItems,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh Stock'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           Expanded(
@@ -882,25 +854,28 @@ class _BillingPageState extends State<BillingPage> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              OutlinedButton.icon(
-                onPressed: _addLine,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Line'),
-              ),
-              const Spacer(),
-              Text(
-                'Draft Total: ${formatCurrency(_calculateDraftTotal())}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: _submitting ? null : _submitBill,
-                icon: const Icon(Icons.check_circle_outline),
-                label: Text(_submitting ? 'Processing...' : 'Confirm Bill'),
-              ),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _addLine,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Line'),
+                ),
+                const SizedBox(width: 16),
+                Text(
+                  'Draft Total: ${formatCurrency(_calculateDraftTotal())}',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _submitBill,
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: Text(_submitting ? 'Processing...' : 'Confirm Bill'),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1109,50 +1084,53 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Sales History',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: _pickStartDate,
-                icon: const Icon(Icons.calendar_month),
-                label: Text(
-                  _startDate == null
-                      ? 'Start Date'
-                      : 'Start: ${formatDate(_startDate!)}',
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Sales History',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _pickEndDate,
-                icon: const Icon(Icons.calendar_month),
-                label: Text(
-                  _endDate == null
-                      ? 'End Date'
-                      : 'End: ${formatDate(_endDate!)}',
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: _pickStartDate,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    _startDate == null
+                        ? 'Start Date'
+                        : 'Start: ${formatDate(_startDate!)}',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _startDate = null;
-                    _endDate = null;
-                  });
-                  _load();
-                },
-                child: const Text('Clear Filter'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh'),
-              ),
-            ],
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickEndDate,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    _endDate == null
+                        ? 'End Date'
+                        : 'End: ${formatDate(_endDate!)}',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _startDate = null;
+                      _endDate = null;
+                    });
+                    _load();
+                  },
+                  child: const Text('Clear Filter'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -1247,48 +1225,51 @@ class _MovementHistoryPageState extends State<MovementHistoryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Item Movement History (Audit Trail)',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: 320,
-                child: DropdownButtonFormField<int?>(
-                  initialValue: _filterItemId,
-                  decoration: const InputDecoration(
-                    labelText: 'Filter by Item',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem<int?>(
-                      value: null,
-                      child: Text('All Items'),
-                    ),
-                    ..._items.map(
-                      (item) => DropdownMenuItem<int?>(
-                        value: item.id,
-                        child: Text(item.name),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      _filterItemId = value;
-                    });
-                    _load();
-                  },
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Item Movement History (Audit Trail)',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh'),
-              ),
-            ],
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 320,
+                  child: DropdownButtonFormField<int?>(
+                    initialValue: _filterItemId,
+                    decoration: const InputDecoration(
+                      labelText: 'Filter by Item',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('All Items'),
+                      ),
+                      ..._items.map(
+                        (item) => DropdownMenuItem<int?>(
+                          value: item.id,
+                          child: Text(item.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _filterItemId = value;
+                      });
+                      _load();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_loading)
@@ -1459,50 +1440,53 @@ class _DailySummaryPageState extends State<DailySummaryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Text(
-                'Daily Summary and Reporting',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-              ),
-              const Spacer(),
-              OutlinedButton.icon(
-                onPressed: _pickStartDate,
-                icon: const Icon(Icons.calendar_month),
-                label: Text(
-                  _startDate == null
-                      ? 'Start Date'
-                      : 'Start: ${formatDate(_startDate!)}',
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                const Text(
+                  'Daily Summary and Reporting',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _pickEndDate,
-                icon: const Icon(Icons.calendar_month),
-                label: Text(
-                  _endDate == null
-                      ? 'End Date'
-                      : 'End: ${formatDate(_endDate!)}',
+                const SizedBox(width: 16),
+                OutlinedButton.icon(
+                  onPressed: _pickStartDate,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    _startDate == null
+                        ? 'Start Date'
+                        : 'Start: ${formatDate(_startDate!)}',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _startDate = null;
-                    _endDate = null;
-                  });
-                  _load();
-                },
-                child: const Text('Clear Filter'),
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Refresh'),
-              ),
-            ],
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _pickEndDate,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    _endDate == null
+                        ? 'End Date'
+                        : 'End: ${formatDate(_endDate!)}',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _startDate = null;
+                      _endDate = null;
+                    });
+                    _load();
+                  },
+                  child: const Text('Clear Filter'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           if (_loading)
