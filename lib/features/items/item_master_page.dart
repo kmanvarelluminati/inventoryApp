@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'package:stock_manager/data/models/entities.dart';
 import 'package:stock_manager/data/services/app_database.dart';
+import 'package:stock_manager/theme/app_theme.dart';
 import 'package:stock_manager/utils/formatters.dart';
 import 'package:stock_manager/widgets/desktop_page_header.dart';
 import 'package:stock_manager/widgets/right_slide_over_panel.dart';
@@ -113,31 +114,64 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
               : 'Opening Quantity';
 
           return Padding(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Panel header
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isEditMode ? 'Edit Item' : 'Add New Item',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, size: 20),
+                      style: IconButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  isEditMode ? 'Edit Item' : 'Add Item',
+                  isEditMode
+                      ? 'Update the item details below.'
+                      : 'Fill in the details to add a new item.',
                   style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
+                const Divider(height: 1),
+                const SizedBox(height: 20),
+
+                // Form fields
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        _buildFieldLabel('Item Name'),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: nameController,
                           onChanged: (_) => setStatePanel(() {}),
                           decoration: const InputDecoration(
-                            labelText: 'Item Name',
+                            hintText: 'Enter item name',
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel('HSN Code'),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: hsnCodeController,
                           keyboardType: TextInputType.number,
@@ -146,10 +180,12 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                           ],
                           onChanged: (_) => setStatePanel(() {}),
                           decoration: const InputDecoration(
-                            labelText: 'HSN Code',
+                            hintText: 'Enter HSN code',
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel(quantityLabel),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: quantityController,
                           keyboardType: TextInputType.number,
@@ -157,9 +193,13 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                             FilteringTextInputFormatter.digitsOnly,
                           ],
                           onChanged: (_) => setStatePanel(() {}),
-                          decoration: InputDecoration(labelText: quantityLabel),
+                          decoration: InputDecoration(
+                            hintText: 'Enter $quantityLabel'.toLowerCase(),
+                          ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel('Packing'),
+                        const SizedBox(height: 6),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -177,17 +217,17 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                                 ],
                                 onChanged: (_) => setStatePanel(() {}),
                                 decoration: const InputDecoration(
-                                  labelText: 'Packing Weight',
+                                  hintText: 'Weight',
                                 ),
                               ),
                             ),
                             const SizedBox(width: 12),
                             SizedBox(
-                              width: 130,
+                              width: 120,
                               child: DropdownButtonFormField<String>(
                                 initialValue: selectedUnit,
                                 decoration: const InputDecoration(
-                                  labelText: 'Unit',
+                                  hintText: 'Unit',
                                 ),
                                 items: _packingUnits
                                     .map(
@@ -209,7 +249,9 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
+                        _buildFieldLabel('Unit Price'),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: priceController,
                           keyboardType: const TextInputType.numberWithOptions(
@@ -222,18 +264,22 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                           ],
                           onChanged: (_) => setStatePanel(() {}),
                           decoration: const InputDecoration(
-                            labelText: 'Unit Price',
+                            hintText: 'Enter price',
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+
+                // Footer buttons
+                const SizedBox(height: 16),
+                const Divider(height: 1),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
+                    OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel'),
                     ),
@@ -260,7 +306,7 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                               );
                             }
                           : null,
-                      child: Text(isEditMode ? 'Save' : 'Create'),
+                      child: Text(isEditMode ? 'Save Changes' : 'Create Item'),
                     ),
                   ],
                 ),
@@ -325,129 +371,186 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
     return '${weight.toStringAsFixed(weight % 1 == 0 ? 0 : 2)} $unit';
   }
 
-  Widget _headerCell(String text, {TextAlign align = TextAlign.left}) {
+  Widget _buildFieldLabel(String text) {
     return Text(
       text,
-      textAlign: align,
-      style: const TextStyle(fontWeight: FontWeight.w600),
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textPrimary,
+      ),
     );
-  }
-
-  Widget _bodyCell(String text, {TextAlign align = TextAlign.left}) {
-    return Text(text, textAlign: align);
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesktopPageHeader(
             title: 'Item Master',
+            subtitle: 'Manage your product catalog',
             actions: [
               OutlinedButton.icon(
                 onPressed: _load,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Refresh'),
               ),
-              const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: () => _showItemPanel(),
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 16),
                 label: const Text('Add Item'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           if (_loading)
             const Expanded(child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
-            Expanded(child: Center(child: Text(_error!)))
+            Expanded(
+              child: Center(
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            )
           else if (_items.isEmpty)
-            const Expanded(child: Center(child: Text('No items found.')))
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 48,
+                      color: AppColors.textTertiary,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'No items found',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Add your first item to get started.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Theme.of(context).dividerColor),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.surface,
+                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
+                    // Table header
                     Container(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
+                      color: AppColors.tableHeaderBg,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
+                        horizontal: 16,
                         vertical: 10,
                       ),
                       child: Row(
                         children: [
-                          Expanded(flex: 3, child: _headerCell('Name')),
-                          Expanded(flex: 2, child: _headerCell('HSN')),
-                          Expanded(flex: 2, child: _headerCell('Packing')),
-                          Expanded(
-                            flex: 2,
-                            child: _headerCell(
-                              'Unit Price',
-                              align: TextAlign.right,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: _headerCell(
-                              'Actions',
-                              align: TextAlign.center,
-                            ),
-                          ),
+                          _tableHeader('Name', flex: 3),
+                          _tableHeader('HSN Code', flex: 2),
+                          _tableHeader('Packing', flex: 2),
+                          _tableHeader('Unit Price', flex: 2, align: TextAlign.right),
+                          _tableHeader('', flex: 1),
                         ],
                       ),
                     ),
-                    const Divider(height: 1),
+                    Container(height: 1, color: AppColors.border),
+                    // Table body
                     Expanded(
                       child: ListView.separated(
                         itemCount: _items.length,
-                        separatorBuilder: (_, index) =>
-                            const Divider(height: 1),
+                        separatorBuilder: (_, _) =>
+                            Container(height: 1, color: AppColors.borderLight),
                         itemBuilder: (context, index) {
                           final item = _items[index];
                           return Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              horizontal: 16,
+                              vertical: 10,
                             ),
                             child: Row(
                               children: [
-                                Expanded(flex: 3, child: _bodyCell(item.name)),
                                 Expanded(
-                                  flex: 2,
-                                  child: _bodyCell(item.hsnCode ?? '-'),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: _bodyCell(_formatPacking(item)),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: _bodyCell(
-                                    formatCurrency(item.currentPrice),
-                                    align: TextAlign.right,
+                                  flex: 3,
+                                  child: Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                                 Expanded(
                                   flex: 2,
+                                  child: Text(
+                                    item.hsnCode ?? '-',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    _formatPacking(item),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    formatCurrency(item.currentPrice),
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 1,
                                   child: Align(
-                                    alignment: Alignment.center,
-                                    child: SizedBox(
-                                      height: 30,
-                                      child: OutlinedButton(
-                                        onPressed: () =>
-                                            _showItemPanel(item: item),
-                                        child: const Text('Edit'),
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: () =>
+                                          _showItemPanel(item: item),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
+                                      child: const Text('Edit'),
                                     ),
                                   ),
                                 ),
@@ -462,6 +565,22 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _tableHeader(String text, {int flex = 1, TextAlign align = TextAlign.left}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text.toUpperCase(),
+        textAlign: align,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }

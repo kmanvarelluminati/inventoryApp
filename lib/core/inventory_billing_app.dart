@@ -7,6 +7,7 @@ import 'package:stock_manager/features/movements/movement_history_page.dart';
 import 'package:stock_manager/features/reports/daily_summary_page.dart';
 import 'package:stock_manager/features/sales/sales_history_page.dart';
 import 'package:stock_manager/features/settings/settings_page.dart';
+import 'package:stock_manager/theme/app_theme.dart';
 
 class InventoryBillingApp extends StatefulWidget {
   const InventoryBillingApp({super.key, required this.database});
@@ -72,70 +73,167 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
     }
   }
 
+  static const _navItems = <_NavItem>[
+    _NavItem(icon: Icons.inventory_2_outlined, selectedIcon: Icons.inventory_2, label: 'Items'),
+    _NavItem(icon: Icons.receipt_long_outlined, selectedIcon: Icons.receipt_long, label: 'Billing'),
+    _NavItem(icon: Icons.history, selectedIcon: Icons.history, label: 'Sales'),
+    _NavItem(icon: Icons.timeline_outlined, selectedIcon: Icons.timeline, label: 'Movements'),
+    _NavItem(icon: Icons.bar_chart_outlined, selectedIcon: Icons.bar_chart, label: 'Reports'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Inventory and Billing System',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0F766E)),
-        useMaterial3: true,
-      ),
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
       home: Scaffold(
+        backgroundColor: AppColors.pageBg,
         body: Row(
           children: [
+            // ── Sidebar ──
             Container(
               width: 240,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
+              color: AppColors.sidebarBg,
+              child: Column(
+                children: [
+                  // Logo / Brand area
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.store_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'Stock Manager',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
-              child: NavigationRail(
-                selectedIndex: _selectedIndex,
-                extended: true,
-                minExtendedWidth: 240,
-                onDestinationSelected: (value) {
-                  setState(() {
-                    _selectedIndex = value;
-                  });
-                },
-                labelType: NavigationRailLabelType.none,
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.inventory_2_outlined),
-                    label: Text('Items'),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Divider(height: 1),
                   ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    label: Text('Billing'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.history),
-                    label: Text('Sales'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.timeline_outlined),
-                    label: Text('Movements'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.summarize_outlined),
-                    label: Text('Reports'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    label: Text('Settings'),
+                  const SizedBox(height: 8),
+
+                  // Navigation items
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < _navItems.length; i++)
+                            _buildNavItem(i, _navItems[i]),
+                          const Spacer(),
+                          // Settings at bottom
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4),
+                            child: Divider(height: 1),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildNavItem(
+                            5,
+                            const _NavItem(
+                              icon: Icons.settings_outlined,
+                              selectedIcon: Icons.settings,
+                              label: 'Settings',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
+
+            // Sidebar right border
+            Container(width: 1, color: AppColors.border),
+
+            // ── Main content ──
             Expanded(
-              child: Column(children: [Expanded(child: _buildPage())]),
+              child: Container(
+                color: AppColors.pageBg,
+                child: _buildPage(),
+              ),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildNavItem(int index, _NavItem item) {
+    final isSelected = _selectedIndex == index;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Material(
+        color: isSelected ? AppColors.primaryLight : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.base),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.base),
+          onTap: () {
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Row(
+              children: [
+                Icon(
+                  isSelected ? item.selectedIcon : item.icon,
+                  size: 20,
+                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  item.label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  const _NavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:stock_manager/data/models/entities.dart';
 import 'package:stock_manager/data/services/app_database.dart';
+import 'package:stock_manager/theme/app_theme.dart';
 import 'package:stock_manager/utils/formatters.dart';
 import 'package:stock_manager/widgets/desktop_page_header.dart';
 
@@ -207,150 +208,228 @@ class _BillingPageState extends State<BillingPage> {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DesktopPageHeader(
             title: 'Billing',
+            subtitle: 'Create and manage sales bills',
             actions: [
-              Chip(
-                label: Text(
-                  widget.manualPriceOverrideEnabled
-                      ? 'Manual Price Override: Enabled'
-                      : 'Manual Price Override: Disabled',
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: widget.manualPriceOverrideEnabled
+                      ? AppColors.primaryLight
+                      : AppColors.tableHeaderBg,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.manualPriceOverrideEnabled
+                          ? Icons.toggle_on
+                          : Icons.toggle_off_outlined,
+                      size: 16,
+                      color: widget.manualPriceOverrideEnabled
+                          ? AppColors.primary
+                          : AppColors.textTertiary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Manual Price ${widget.manualPriceOverrideEnabled ? 'On' : 'Off'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: widget.manualPriceOverrideEnabled
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 16),
               OutlinedButton.icon(
                 onPressed: _loadItems,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Refresh Stock'),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
+
+          // Line items
           Expanded(
-            child: ListView.builder(
+            child: ListView.separated(
               itemCount: _lines.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final line = _lines[index];
                 final selectedItem = _itemById(line.itemId);
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Line header
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.tableHeaderBg,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Text(
                               'Line ${index + 1}',
                               style: const TextStyle(
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
                               ),
                             ),
-                            const Spacer(),
-                            if (_lines.length > 1)
-                              IconButton(
-                                onPressed: () => _removeLine(line),
-                                icon: const Icon(Icons.delete_outline),
-                                tooltip: 'Remove line',
+                          ),
+                          const Spacer(),
+                          if (selectedItem != null)
+                            Text(
+                              'Default: ${formatCurrency(selectedItem.currentPrice)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textTertiary,
                               ),
+                            ),
+                          if (_lines.length > 1) ...[
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => _removeLine(line),
+                              icon: const Icon(Icons.close, size: 16),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppColors.textTertiary,
+                                minimumSize: const Size(28, 28),
+                                padding: const EdgeInsets.all(4),
+                              ),
+                              tooltip: 'Remove line',
+                            ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: 320,
-                              child: DropdownButtonFormField<int>(
-                                initialValue: line.itemId,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  labelText: 'Item',
-                                  border: OutlineInputBorder(),
-                                ),
-                                items: _items
-                                    .map(
-                                      (item) => DropdownMenuItem<int>(
-                                        value: item.id,
-                                        child: Text(
-                                          '${item.name} (Stock: ${item.currentStock})',
-                                        ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Fields
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 320,
+                            child: DropdownButtonFormField<int>(
+                              initialValue: line.itemId,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Item',
+                              ),
+                              items: _items
+                                  .map(
+                                    (item) => DropdownMenuItem<int>(
+                                      value: item.id,
+                                      child: Text(
+                                        '${item.name} (Stock: ${item.currentStock})',
+                                        style: const TextStyle(fontSize: 13),
                                       ),
-                                    )
-                                    .toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    line.itemId = value;
-                                  });
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 140,
-                              child: TextField(
-                                controller: line.qtyController,
-                                keyboardType: TextInputType.number,
-                                decoration: const InputDecoration(
-                                  labelText: 'Quantity',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 180,
-                              child: TextField(
-                                controller: line.priceController,
-                                enabled: widget.manualPriceOverrideEnabled,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
                                     ),
-                                decoration: InputDecoration(
-                                  labelText: widget.manualPriceOverrideEnabled
-                                      ? 'Manual Unit Price'
-                                      : 'Manual Unit Price (disabled)',
-                                  border: const OutlineInputBorder(),
-                                ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() {
+                                  line.itemId = value;
+                                });
+                              },
+                            ),
+                          ),
+                          SizedBox(
+                            width: 120,
+                            child: TextField(
+                              controller: line.qtyController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'Qty',
                               ),
                             ),
-                            if (selectedItem != null)
-                              Text(
-                                'Default Price: ${formatCurrency(selectedItem.currentPrice)}',
+                          ),
+                          SizedBox(
+                            width: 160,
+                            child: TextField(
+                              controller: line.priceController,
+                              enabled: widget.manualPriceOverrideEnabled,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
+                              decoration: InputDecoration(
+                                labelText: widget.manualPriceOverrideEnabled
+                                    ? 'Manual Price'
+                                    : 'Manual Price (off)',
                               ),
-                          ],
-                        ),
-                      ],
-                    ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+
+          // Footer
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
             child: Row(
               children: [
                 OutlinedButton.icon(
                   onPressed: _addLine,
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add Line'),
                 ),
-                const SizedBox(width: 16),
+                const Spacer(),
                 Text(
-                  'Draft Total: ${formatCurrency(_calculateDraftTotal())}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  'Total: ',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                const SizedBox(width: 12),
+                Text(
+                  formatCurrency(_calculateDraftTotal()),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 FilledButton.icon(
                   onPressed: _submitting ? null : _submitBill,
-                  icon: const Icon(Icons.check_circle_outline),
+                  icon: Icon(
+                    _submitting ? Icons.hourglass_empty : Icons.check_circle_outline,
+                    size: 16,
+                  ),
                   label: Text(_submitting ? 'Processing...' : 'Confirm Bill'),
                 ),
               ],

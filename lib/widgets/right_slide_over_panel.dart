@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:stock_manager/theme/app_theme.dart';
+
 Future<T?> showRightSlideOverPanel<T>({
   required BuildContext context,
   required Widget child,
@@ -10,8 +12,8 @@ Future<T?> showRightSlideOverPanel<T>({
     context: context,
     barrierLabel: 'Close panel',
     barrierDismissible: barrierDismissible,
-    barrierColor: Colors.black54,
-    transitionDuration: const Duration(milliseconds: 220),
+    barrierColor: Colors.black38,
+    transitionDuration: const Duration(milliseconds: 250),
     pageBuilder: (context, animation, secondaryAnimation) {
       final availableWidth = MediaQuery.of(context).size.width;
       final panelWidth = (availableWidth * 0.42).clamp(380.0, maxWidth);
@@ -19,12 +21,24 @@ Future<T?> showRightSlideOverPanel<T>({
       return SafeArea(
         child: Align(
           alignment: Alignment.centerRight,
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            elevation: 10,
-            child: SizedBox(
-              width: panelWidth,
-              height: double.infinity,
+          child: Container(
+            width: panelWidth,
+            height: double.infinity,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(
+                left: BorderSide(color: AppColors.border, width: 1),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x14000000),
+                  blurRadius: 24,
+                  offset: Offset(-4, 0),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
               child: child,
             ),
           ),
