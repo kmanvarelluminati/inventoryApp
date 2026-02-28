@@ -25,12 +25,13 @@ class _BillingPageState extends State<BillingPage> {
   bool _submitting = false;
   List<ItemRecord> _items = const [];
   final List<BillLineEditor> _lines = [];
+  final TextEditingController _itemSearchController = TextEditingController();
+  final FocusNode _itemSearchFocusNode = FocusNode();
   int _lineCounter = 0;
 
   @override
   void initState() {
     super.initState();
-    _addLine();
     _loadItems();
   }
 
@@ -45,6 +46,8 @@ class _BillingPageState extends State<BillingPage> {
 
   @override
   void dispose() {
+    _itemSearchController.dispose();
+    _itemSearchFocusNode.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -67,22 +70,32 @@ class _BillingPageState extends State<BillingPage> {
     });
   }
 
-  void _addLine() {
+  void _addLine({int? selectedItemId}) {
     setState(() {
       _lineCounter += 1;
-      _lines.add(BillLineEditor(id: _lineCounter));
+      _lines.add(BillLineEditor(id: _lineCounter, itemId: selectedItemId));
     });
   }
 
   void _removeLine(BillLineEditor line) {
-    if (_lines.length <= 1) {
-      return;
-    }
-
     setState(() {
       _lines.remove(line);
       line.dispose();
     });
+  }
+
+  void _addItemToCart(ItemRecord item) {
+    final existing = _lines.where((line) => line.itemId == item.id).firstOrNull;
+    if (existing != null) {
+      final currentQty = int.tryParse(existing.qtyController.text.trim()) ?? 0;
+      existing.qtyController.text = (currentQty + 1).toString();
+      setState(() {});
+    } else {
+      _addLine(selectedItemId: item.id);
+    }
+
+    _itemSearchController.clear();
+    _itemSearchFocusNode.requestFocus();
   }
 
   ItemRecord? _itemById(int? id) {
@@ -122,6 +135,11 @@ class _BillingPageState extends State<BillingPage> {
 
   Future<void> _submitBill() async {
     if (_submitting) {
+      return;
+    }
+
+    if (_lines.isEmpty) {
+      _showMessage('Add at least one item to the bill.');
       return;
     }
 
@@ -181,8 +199,9 @@ class _BillingPageState extends State<BillingPage> {
       }
       _lines.clear();
       _lineCounter = 0;
-      _addLine();
       await _loadItems();
+      _itemSearchController.clear();
+      _itemSearchFocusNode.requestFocus();
     } catch (e) {
       _showMessage('Failed to create bill: $e');
       await _loadItems();
@@ -258,136 +277,303 @@ class _BillingPageState extends State<BillingPage> {
             ],
           ),
           const SizedBox(height: 20),
-
-          // Line items
-          Expanded(
-            child: ListView.separated(
-              itemCount: _lines.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final line = _lines[index];
-                final selectedItem = _itemById(line.itemId);
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    border: Border.all(color: AppColors.border),
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Line header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.tableHeaderBg,
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Text(
-                              'Line ${index + 1}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          if (selectedItem != null)
-                            Text(
-                              'Default: ${formatCurrency(selectedItem.currentPrice)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textTertiary,
-                              ),
-                            ),
-                          if (_lines.length > 1) ...[
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () => _removeLine(line),
-                              icon: const Icon(Icons.close, size: 16),
-                              style: IconButton.styleFrom(
-                                foregroundColor: AppColors.textTertiary,
-                                minimumSize: const Size(28, 28),
-                                padding: const EdgeInsets.all(4),
-                              ),
-                              tooltip: 'Remove line',
-                            ),
-                          ],
-                        ],
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: RawAutocomplete<ItemRecord>(
+              textEditingController: _itemSearchController,
+              focusNode: _itemSearchFocusNode,
+              displayStringForOption: (item) => item.name,
+              optionsBuilder: (TextEditingValue textEditingValue) {
+                final query = textEditingValue.text.trim().toLowerCase();
+                if (query.isEmpty) {
+                  return const Iterable<ItemRecord>.empty();
+                }
+                return _items
+                    .where(
+                      (item) =>
+                          item.name.toLowerCase().contains(query) ||
+                          (item.hsnCode ?? '').toLowerCase().contains(query),
+                    )
+                    .take(20);
+              },
+              onSelected: _addItemToCart,
+              fieldViewBuilder:
+                  (
+                    context,
+                    controller,
+                    focusNode,
+                    onFieldSubmitted,
+                  ) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => onFieldSubmitted(),
+                      decoration: const InputDecoration(
+                        hintText: 'Search item by name or HSN and press Enter',
+                        prefixIcon: Icon(Icons.search),
                       ),
-                      const SizedBox(height: 12),
-
-                      // Fields
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        crossAxisAlignment: WrapCrossAlignment.start,
-                        children: [
-                          SizedBox(
-                            width: 320,
-                            child: DropdownButtonFormField<int>(
-                              initialValue: line.itemId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Item',
+                    );
+                  },
+              optionsViewBuilder: (context, onSelected, options) {
+                return Align(
+                  alignment: Alignment.topLeft,
+                  child: Material(
+                    elevation: 6,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Container(
+                      width: 640,
+                      constraints: const BoxConstraints(maxHeight: 320),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                      ),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        itemCount: options.length,
+                        itemBuilder: (context, index) {
+                          final item = options.elementAt(index);
+                          return InkWell(
+                            onTap: () => onSelected(item),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
                               ),
-                              items: _items
-                                  .map(
-                                    (item) => DropdownMenuItem<int>(
-                                      value: item.id,
-                                      child: Text(
-                                        '${item.name} (Stock: ${item.currentStock})',
-                                        style: const TextStyle(fontSize: 13),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  line.itemId = value;
-                                });
-                              },
-                            ),
-                          ),
-                          SizedBox(
-                            width: 120,
-                            child: TextField(
-                              controller: line.qtyController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'Qty',
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            width: 160,
-                            child: TextField(
-                              controller: line.priceController,
-                              enabled: widget.manualPriceOverrideEnabled,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
                                   ),
-                              decoration: InputDecoration(
-                                labelText: widget.manualPriceOverrideEnabled
-                                    ? 'Manual Price'
-                                    : 'Manual Price (off)',
+                                  Text(
+                                    'Stock: ${item.currentStock}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    formatCurrency(item.currentPrice),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textTertiary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    ],
+                    ),
                   ),
                 );
               },
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Line items
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: _lines.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Search and select an item to add it to the bill.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        Container(
+                          color: AppColors.tableHeaderBg,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: const Row(
+                            children: [
+                              Expanded(
+                                flex: 4,
+                                child: Text(
+                                  'ITEM',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'QTY',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'MANUAL PRICE',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  'DEFAULT',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 36),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: _lines.length,
+                            separatorBuilder: (_, _) =>
+                                Container(height: 1, color: AppColors.borderLight),
+                            itemBuilder: (context, index) {
+                              final line = _lines[index];
+                              final item = _itemById(line.itemId);
+                              if (item == null) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 4,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Stock: ${item.currentStock}',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: AppColors.textTertiary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: line.qtyController,
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (_) => setState(() {}),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Qty',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: line.priceController,
+                                        enabled: widget.manualPriceOverrideEnabled,
+                                        keyboardType:
+                                            const TextInputType.numberWithOptions(
+                                              decimal: true,
+                                            ),
+                                        onChanged: (_) => setState(() {}),
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          labelText: widget.manualPriceOverrideEnabled
+                                              ? 'Manual'
+                                              : 'Manual (off)',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        formatCurrency(item.currentPrice),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 36,
+                                      child: IconButton(
+                                        onPressed: () => _removeLine(line),
+                                        icon: const Icon(Icons.close, size: 16),
+                                        style: IconButton.styleFrom(
+                                          foregroundColor: AppColors.textTertiary,
+                                          minimumSize: const Size(28, 28),
+                                          padding: const EdgeInsets.all(4),
+                                        ),
+                                        tooltip: 'Remove item',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
 
@@ -402,11 +588,6 @@ class _BillingPageState extends State<BillingPage> {
             ),
             child: Row(
               children: [
-                OutlinedButton.icon(
-                  onPressed: _addLine,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add Line'),
-                ),
                 const Spacer(),
                 Text(
                   'Total: ',
@@ -442,7 +623,7 @@ class _BillingPageState extends State<BillingPage> {
 }
 
 class BillLineEditor {
-  BillLineEditor({required this.id});
+  BillLineEditor({required this.id, this.itemId});
 
   final int id;
   int? itemId;
