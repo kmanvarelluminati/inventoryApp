@@ -1,5 +1,5 @@
 String formatCurrency(double value) {
-  return '\$${value.toStringAsFixed(2)}';
+  return '₹${value.toStringAsFixed(2)}';
 }
 
 String formatNullableCurrency(double? value) {
