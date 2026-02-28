@@ -471,6 +471,7 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                         children: [
                           _tableHeader('Name', flex: 3),
                           _tableHeader('HSN Code', flex: 2),
+                          _tableHeader('Available Qty', flex: 2),
                           _tableHeader('Packing', flex: 2),
                           _tableHeader('Unit Price', flex: 2, align: TextAlign.right),
                           _tableHeader('', flex: 1),
@@ -507,6 +508,16 @@ class _ItemMasterPageState extends State<ItemMasterPage> {
                                   flex: 2,
                                   child: Text(
                                     item.hsnCode ?? '-',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    item.currentStock.toString(),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: AppColors.textSecondary,
