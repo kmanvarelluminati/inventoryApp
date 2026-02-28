@@ -21,6 +21,7 @@ class InventoryBillingApp extends StatefulWidget {
 class _InventoryBillingAppState extends State<InventoryBillingApp> {
   int _selectedIndex = 0;
   bool _manualPriceOverrideEnabled = false;
+  double _gstRatePercent = 0;
 
   @override
   void initState() {
@@ -29,12 +30,16 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
   }
 
   Future<void> _loadSettings() async {
-    final enabled = await widget.database.getManualPriceOverrideEnabled();
+    final results = await Future.wait([
+      widget.database.getManualPriceOverrideEnabled(),
+      widget.database.getGstRatePercent(),
+    ]);
     if (!mounted) {
       return;
     }
     setState(() {
-      _manualPriceOverrideEnabled = enabled;
+      _manualPriceOverrideEnabled = results[0] as bool;
+      _gstRatePercent = results[1] as double;
     });
   }
 
@@ -48,6 +53,16 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
     });
   }
 
+  Future<void> _updateGstRatePercent(double ratePercent) async {
+    await widget.database.setGstRatePercent(ratePercent);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _gstRatePercent = ratePercent;
+    });
+  }
+
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0:
@@ -56,6 +71,7 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
         return BillingPage(
           database: widget.database,
           manualPriceOverrideEnabled: _manualPriceOverrideEnabled,
+          gstRatePercent: _gstRatePercent,
         );
       case 2:
         return SalesHistoryPage(database: widget.database);
@@ -66,7 +82,9 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
       case 5:
         return SettingsPage(
           manualPriceOverrideEnabled: _manualPriceOverrideEnabled,
+          gstRatePercent: _gstRatePercent,
           onManualPriceOverrideChanged: _updateManualOverride,
+          onGstRateChanged: _updateGstRatePercent,
         );
       default:
         return ItemMasterPage(database: widget.database);

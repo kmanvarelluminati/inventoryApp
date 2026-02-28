@@ -11,10 +11,12 @@ class BillingPage extends StatefulWidget {
     super.key,
     required this.database,
     required this.manualPriceOverrideEnabled,
+    required this.gstRatePercent,
   });
 
   final AppDatabase database;
   final bool manualPriceOverrideEnabled;
+  final double gstRatePercent;
 
   @override
   State<BillingPage> createState() => _BillingPageState();
@@ -133,6 +135,34 @@ class _BillingPageState extends State<BillingPage> {
     return manualPrice ?? item.currentPrice;
   }
 
+  int _effectiveQty(BillLineEditor line) {
+    final qty = int.tryParse(line.qtyController.text.trim());
+    if (qty == null || qty <= 0) {
+      return 0;
+    }
+    return qty;
+  }
+
+  double _taxableAmount(BillLineEditor line, ItemRecord item) {
+    return _effectiveUnitPrice(line, item) * _effectiveQty(line);
+  }
+
+  double _gstAmount(BillLineEditor line, ItemRecord item) {
+    return _round2(_taxableAmount(line, item) * (widget.gstRatePercent / 100));
+  }
+
+  double _cgstAmount(BillLineEditor line, ItemRecord item) {
+    return _round2(_gstAmount(line, item) / 2);
+  }
+
+  double _sgstAmount(BillLineEditor line, ItemRecord item) {
+    return _round2(_gstAmount(line, item) / 2);
+  }
+
+  double _lineTotal(BillLineEditor line, ItemRecord item) {
+    return _round2(_taxableAmount(line, item) + _gstAmount(line, item));
+  }
+
   double _calculateDraftTotal() {
     var total = 0.0;
     for (final line in _lines) {
@@ -146,13 +176,9 @@ class _BillingPageState extends State<BillingPage> {
         continue;
       }
 
-      final manualPrice = widget.manualPriceOverrideEnabled
-          ? double.tryParse(line.priceController.text.trim())
-          : null;
-      final unitPrice = manualPrice ?? item.currentPrice;
-      total += unitPrice * qty;
+      total += _lineTotal(line, item);
     }
-    return total;
+    return _round2(total);
   }
 
   Future<void> _submitBill() async {
@@ -213,6 +239,7 @@ class _BillingPageState extends State<BillingPage> {
       final billNo = await widget.database.createBill(
         requestLines,
         manualPriceOverrideEnabled: widget.manualPriceOverrideEnabled,
+        gstRatePercent: widget.gstRatePercent,
       );
       _showMessage('Bill created successfully: $billNo');
 
@@ -248,11 +275,14 @@ class _BillingPageState extends State<BillingPage> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    const unitPriceColumnWidth = 140.0;
-    const qtyColumnWidth = 110.0;
-    const lineTotalColumnWidth = 160.0;
+    const unitPriceColumnWidth = 120.0;
+    const gstPercentColumnWidth = 70.0;
+    const cgstColumnWidth = 110.0;
+    const sgstColumnWidth = 110.0;
+    const qtyColumnWidth = 90.0;
+    const lineTotalColumnWidth = 140.0;
     const actionColumnWidth = 32.0;
-    const qtyInputWidth = 72.0;
+    const qtyInputWidth = 64.0;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -508,6 +538,45 @@ class _BillingPageState extends State<BillingPage> {
                                 ),
                               ),
                               SizedBox(
+                                width: gstPercentColumnWidth,
+                                child: Text(
+                                  'GST %',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: cgstColumnWidth,
+                                child: Text(
+                                  'CGST AMOUNT',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: sgstColumnWidth,
+                                child: Text(
+                                  'SGST AMOUNT',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
                                 width: lineTotalColumnWidth,
                                 child: Text(
                                   'LINE TOTAL',
@@ -609,7 +678,7 @@ class _BillingPageState extends State<BillingPage> {
                                               isDense: true,
                                               hintText: '0',
                                               contentPadding: EdgeInsets.symmetric(
-                                                horizontal: 10,
+                                                horizontal: 8,
                                                 vertical: 8,
                                               ),
                                             ),
@@ -618,15 +687,42 @@ class _BillingPageState extends State<BillingPage> {
                                       ),
                                     ),
                                     SizedBox(
+                                      width: gstPercentColumnWidth,
+                                      child: Text(
+                                        '${_round2(widget.gstRatePercent).toStringAsFixed(2)}%',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: cgstColumnWidth,
+                                      child: Text(
+                                        formatCurrency(_cgstAmount(line, item)),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: sgstColumnWidth,
+                                      child: Text(
+                                        formatCurrency(_sgstAmount(line, item)),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
                                       width: lineTotalColumnWidth,
                                       child: Text(
-                                        formatCurrency(
-                                          _effectiveUnitPrice(line, item) *
-                                              (int.tryParse(
-                                                    line.qtyController.text.trim(),
-                                                  ) ??
-                                                  0),
-                                        ),
+                                        formatCurrency(_lineTotal(line, item)),
                                         textAlign: TextAlign.right,
                                         style: const TextStyle(
                                           fontSize: 13,
@@ -717,3 +813,5 @@ class BillLineEditor {
     priceController.dispose();
   }
 }
+
+double _round2(double value) => (value * 100).roundToDouble() / 100;

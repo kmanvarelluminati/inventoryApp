@@ -102,6 +102,10 @@ class AppDatabase {
             'key': 'manual_price_override',
             'value': '0',
           });
+          await database.insert('app_settings', {
+            'key': 'gst_rate_percent',
+            'value': '0',
+          });
         },
         onUpgrade: (database, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -121,6 +125,10 @@ class AppDatabase {
 
     await db.insert('app_settings', {
       'key': 'manual_price_override',
+      'value': '0',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'gst_rate_percent',
       'value': '0',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
@@ -149,6 +157,33 @@ class AppDatabase {
     await _db.insert('app_settings', {
       'key': 'manual_price_override',
       'value': enabled ? '1' : '0',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<double> getGstRatePercent() async {
+    final rows = await _db.query(
+      'app_settings',
+      where: 'key = ?',
+      whereArgs: ['gst_rate_percent'],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return 0;
+    }
+    final parsed = double.tryParse(_string(rows.first['value']));
+    if (parsed == null || parsed < 0) {
+      return 0;
+    }
+    return parsed;
+  }
+
+  Future<void> setGstRatePercent(double ratePercent) async {
+    if (ratePercent < 0) {
+      throw ArgumentError('GST rate cannot be negative.');
+    }
+    await _db.insert('app_settings', {
+      'key': 'gst_rate_percent',
+      'value': ratePercent.toStringAsFixed(2),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
@@ -403,6 +438,7 @@ class AppDatabase {
   Future<String> createBill(
     List<BillLineInput> lines, {
     required bool manualPriceOverrideEnabled,
+    required double gstRatePercent,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('Bill must contain at least one line item.');
@@ -469,7 +505,9 @@ class AppDatabase {
           throw StateError('Sale price cannot be negative.');
         }
 
-        final lineTotal = chosenPrice * line.quantity;
+        final taxableAmount = chosenPrice * line.quantity;
+        final gstAmount = taxableAmount * (gstRatePercent / 100);
+        final lineTotal = _round2(taxableAmount + gstAmount);
         grossTotal += lineTotal;
 
         final updateCount = await txn.update(
@@ -512,7 +550,7 @@ class AppDatabase {
 
       await txn.update(
         'bills',
-        {'gross_total': grossTotal},
+        {'gross_total': _round2(grossTotal)},
         where: 'id = ?',
         whereArgs: [billId],
       );
@@ -826,3 +864,5 @@ String? _nullableString(Object? value) {
 }
 
 String _nowIso() => DateTime.now().toIso8601String();
+
+double _round2(double value) => (value * 100).roundToDouble() / 100;
