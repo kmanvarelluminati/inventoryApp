@@ -19,7 +19,7 @@ class AppDatabase {
     final db = await dbFactory.openDatabase(
       dbPath,
       options: OpenDatabaseOptions(
-        version: 2,
+        version: 3,
         onConfigure: (database) async {
           await database.execute('PRAGMA foreign_keys = ON;');
           await database.execute('PRAGMA journal_mode = WAL;');
@@ -69,6 +69,11 @@ class AppDatabase {
               bill_no TEXT NOT NULL UNIQUE,
               status TEXT NOT NULL CHECK (status IN ('active', 'cancelled')),
               gross_total REAL NOT NULL CHECK (gross_total >= 0),
+              gst_rate_percent REAL NOT NULL DEFAULT 0 CHECK (gst_rate_percent >= 0),
+              customer_name TEXT NOT NULL DEFAULT '',
+              customer_village TEXT NOT NULL DEFAULT '',
+              customer_mobile TEXT NOT NULL DEFAULT '',
+              customer_district TEXT NOT NULL DEFAULT '',
               created_at TEXT NOT NULL,
               cancelled_at TEXT
             );
@@ -106,6 +111,26 @@ class AppDatabase {
             'key': 'gst_rate_percent',
             'value': '0',
           });
+          await database.insert('app_settings', {
+            'key': 'invoice_shop_name',
+            'value': '',
+          });
+          await database.insert('app_settings', {
+            'key': 'invoice_shop_address',
+            'value': '',
+          });
+          await database.insert('app_settings', {
+            'key': 'invoice_shop_mobile',
+            'value': '',
+          });
+          await database.insert('app_settings', {
+            'key': 'invoice_shop_gst_no',
+            'value': '',
+          });
+          await database.insert('app_settings', {
+            'key': 'invoice_shop_ferti_regn_no',
+            'value': '',
+          });
         },
         onUpgrade: (database, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -119,6 +144,23 @@ class AppDatabase {
               "ALTER TABLE items ADD COLUMN packing_unit TEXT NOT NULL DEFAULT 'KG';",
             );
           }
+          if (oldVersion < 3) {
+            await database.execute(
+              "ALTER TABLE bills ADD COLUMN gst_rate_percent REAL NOT NULL DEFAULT 0 CHECK (gst_rate_percent >= 0);",
+            );
+            await database.execute(
+              "ALTER TABLE bills ADD COLUMN customer_name TEXT NOT NULL DEFAULT '';",
+            );
+            await database.execute(
+              "ALTER TABLE bills ADD COLUMN customer_village TEXT NOT NULL DEFAULT '';",
+            );
+            await database.execute(
+              "ALTER TABLE bills ADD COLUMN customer_mobile TEXT NOT NULL DEFAULT '';",
+            );
+            await database.execute(
+              "ALTER TABLE bills ADD COLUMN customer_district TEXT NOT NULL DEFAULT '';",
+            );
+          }
         },
       ),
     );
@@ -130,6 +172,26 @@ class AppDatabase {
     await db.insert('app_settings', {
       'key': 'gst_rate_percent',
       'value': '0',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'invoice_shop_name',
+      'value': '',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'invoice_shop_address',
+      'value': '',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'invoice_shop_mobile',
+      'value': '',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'invoice_shop_gst_no',
+      'value': '',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'invoice_shop_ferti_regn_no',
+      'value': '',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     return AppDatabase._(db);
@@ -185,6 +247,36 @@ class AppDatabase {
       'key': 'gst_rate_percent',
       'value': ratePercent.toStringAsFixed(2),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<InvoiceProfileSettings> getInvoiceProfileSettings() async {
+    final rows = await _db.query('app_settings');
+    final values = <String, String>{
+      for (final row in rows) _string(row['key']): _string(row['value']),
+    };
+    return InvoiceProfileSettings(
+      shopName: values['invoice_shop_name'] ?? '',
+      address: values['invoice_shop_address'] ?? '',
+      mobile: values['invoice_shop_mobile'] ?? '',
+      gstNo: values['invoice_shop_gst_no'] ?? '',
+      fertiRegnNo: values['invoice_shop_ferti_regn_no'] ?? '',
+    );
+  }
+
+  Future<void> setInvoiceProfileSettings(InvoiceProfileSettings settings) async {
+    final entries = <MapEntry<String, String>>[
+      MapEntry('invoice_shop_name', settings.shopName.trim()),
+      MapEntry('invoice_shop_address', settings.address.trim()),
+      MapEntry('invoice_shop_mobile', settings.mobile.trim()),
+      MapEntry('invoice_shop_gst_no', settings.gstNo.trim()),
+      MapEntry('invoice_shop_ferti_regn_no', settings.fertiRegnNo.trim()),
+    ];
+    for (final entry in entries) {
+      await _db.insert('app_settings', {
+        'key': entry.key,
+        'value': entry.value,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 
   Future<void> createItem({
@@ -439,6 +531,7 @@ class AppDatabase {
     List<BillLineInput> lines, {
     required bool manualPriceOverrideEnabled,
     required double gstRatePercent,
+    required BillCustomerDetailsInput customerDetails,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('Bill must contain at least one line item.');
@@ -478,6 +571,11 @@ class AppDatabase {
         'bill_no': billNo,
         'status': BillStatus.active.name,
         'gross_total': 0,
+        'gst_rate_percent': gstRatePercent,
+        'customer_name': customerDetails.customerName.trim(),
+        'customer_village': customerDetails.village.trim(),
+        'customer_mobile': customerDetails.mobile.trim(),
+        'customer_district': customerDetails.district.trim(),
         'created_at': now,
         'cancelled_at': null,
       });
@@ -607,6 +705,9 @@ class AppDatabase {
         bi.bill_id,
         bi.item_id,
         i.name AS item_name,
+        i.hsn_code,
+        i.packing_weight,
+        i.packing_unit,
         bi.qty,
         bi.unit_price_at_sale,
         bi.line_total
@@ -623,7 +724,12 @@ class AppDatabase {
       billNo: _string(bill['bill_no']),
       status: BillStatus.values.byName(_string(bill['status'])),
       grossTotal: _doubleValue(bill['gross_total']),
+      gstRatePercent: _doubleValue(bill['gst_rate_percent']),
       createdAt: _string(bill['created_at']),
+      customerName: _string(bill['customer_name']),
+      village: _string(bill['customer_village']),
+      mobile: _string(bill['customer_mobile']),
+      district: _string(bill['customer_district']),
       cancelledAt: _nullableString(bill['cancelled_at']),
       lines: lineRows.map(BillLineDetail.fromMap).toList(),
     );

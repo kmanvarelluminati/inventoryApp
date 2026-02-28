@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:stock_manager/data/models/entities.dart';
 import 'package:stock_manager/data/services/app_database.dart';
 import 'package:stock_manager/features/billing/billing_page.dart';
 import 'package:stock_manager/features/items/item_master_page.dart';
@@ -22,6 +23,13 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
   int _selectedIndex = 0;
   bool _manualPriceOverrideEnabled = false;
   double _gstRatePercent = 0;
+  InvoiceProfileSettings _invoiceProfile = const InvoiceProfileSettings(
+    shopName: '',
+    address: '',
+    mobile: '',
+    gstNo: '',
+    fertiRegnNo: '',
+  );
 
   @override
   void initState() {
@@ -33,6 +41,7 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
     final results = await Future.wait([
       widget.database.getManualPriceOverrideEnabled(),
       widget.database.getGstRatePercent(),
+      widget.database.getInvoiceProfileSettings(),
     ]);
     if (!mounted) {
       return;
@@ -40,6 +49,7 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
     setState(() {
       _manualPriceOverrideEnabled = results[0] as bool;
       _gstRatePercent = results[1] as double;
+      _invoiceProfile = results[2] as InvoiceProfileSettings;
     });
   }
 
@@ -63,6 +73,16 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
     });
   }
 
+  Future<void> _updateInvoiceProfile(InvoiceProfileSettings settings) async {
+    await widget.database.setInvoiceProfileSettings(settings);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _invoiceProfile = settings;
+    });
+  }
+
   Widget _buildPage() {
     switch (_selectedIndex) {
       case 0:
@@ -83,8 +103,10 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
         return SettingsPage(
           manualPriceOverrideEnabled: _manualPriceOverrideEnabled,
           gstRatePercent: _gstRatePercent,
+          invoiceProfile: _invoiceProfile,
           onManualPriceOverrideChanged: _updateManualOverride,
           onGstRateChanged: _updateGstRatePercent,
+          onInvoiceProfileChanged: _updateInvoiceProfile,
         );
       default:
         return ItemMasterPage(database: widget.database);

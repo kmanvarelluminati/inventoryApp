@@ -29,6 +29,11 @@ class _BillingPageState extends State<BillingPage> {
   final List<BillLineEditor> _lines = [];
   final TextEditingController _itemSearchController = TextEditingController();
   final FocusNode _itemSearchFocusNode = FocusNode();
+  final TextEditingController _customerNameController = TextEditingController();
+  final TextEditingController _villageController = TextEditingController();
+  final TextEditingController _customerMobileController =
+      TextEditingController();
+  final TextEditingController _districtController = TextEditingController();
   int _lineCounter = 0;
 
   @override
@@ -50,6 +55,10 @@ class _BillingPageState extends State<BillingPage> {
   void dispose() {
     _itemSearchController.dispose();
     _itemSearchFocusNode.dispose();
+    _customerNameController.dispose();
+    _villageController.dispose();
+    _customerMobileController.dispose();
+    _districtController.dispose();
     for (final line in _lines) {
       line.dispose();
     }
@@ -240,6 +249,12 @@ class _BillingPageState extends State<BillingPage> {
         requestLines,
         manualPriceOverrideEnabled: widget.manualPriceOverrideEnabled,
         gstRatePercent: widget.gstRatePercent,
+        customerDetails: BillCustomerDetailsInput(
+          customerName: _customerNameController.text.trim(),
+          village: _villageController.text.trim(),
+          mobile: _customerMobileController.text.trim(),
+          district: _districtController.text.trim(),
+        ),
       );
       _showMessage('Bill created successfully: $billNo');
 
@@ -251,6 +266,10 @@ class _BillingPageState extends State<BillingPage> {
       await _loadItems();
       _itemSearchController.clear();
       _itemSearchFocusNode.requestFocus();
+      _customerNameController.clear();
+      _villageController.clear();
+      _customerMobileController.clear();
+      _districtController.clear();
     } catch (e) {
       _showMessage('Failed to create bill: $e');
       await _loadItems();
@@ -335,6 +354,62 @@ class _BillingPageState extends State<BillingPage> {
             ],
           ),
           const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _customerNameController,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Customer Name',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _villageController,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Village',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _customerMobileController,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'Mobile',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: TextField(
+                    controller: _districtController,
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      labelText: 'District',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(

@@ -10,6 +10,20 @@ class BillLineInput {
   final double? manualUnitPrice;
 }
 
+class BillCustomerDetailsInput {
+  const BillCustomerDetailsInput({
+    required this.customerName,
+    required this.village,
+    required this.mobile,
+    required this.district,
+  });
+
+  final String customerName;
+  final String village;
+  final String mobile;
+  final String district;
+}
+
 enum BillStatus { active, cancelled }
 
 class StockAction {
@@ -95,6 +109,9 @@ class BillLineDetail {
     required this.billId,
     required this.itemId,
     required this.itemName,
+    this.hsnCode,
+    this.packingWeight,
+    this.packingUnit,
     required this.quantity,
     required this.unitPriceAtSale,
     required this.lineTotal,
@@ -104,6 +121,9 @@ class BillLineDetail {
   final int billId;
   final int itemId;
   final String itemName;
+  final String? hsnCode;
+  final double? packingWeight;
+  final String? packingUnit;
   final int quantity;
   final double unitPriceAtSale;
   final double lineTotal;
@@ -114,6 +134,11 @@ class BillLineDetail {
       billId: _intValue(map['bill_id']),
       itemId: _intValue(map['item_id']),
       itemName: _string(map['item_name']),
+      hsnCode: _nullableString(map['hsn_code']),
+      packingWeight: map['packing_weight'] == null
+          ? null
+          : _doubleValue(map['packing_weight']),
+      packingUnit: _nullableString(map['packing_unit']),
       quantity: _intValue(map['qty']),
       unitPriceAtSale: _doubleValue(map['unit_price_at_sale']),
       lineTotal: _doubleValue(map['line_total']),
@@ -127,7 +152,12 @@ class BillDetails {
     required this.billNo,
     required this.status,
     required this.grossTotal,
+    required this.gstRatePercent,
     required this.createdAt,
+    required this.customerName,
+    required this.village,
+    required this.mobile,
+    required this.district,
     required this.lines,
     this.cancelledAt,
   });
@@ -136,9 +166,30 @@ class BillDetails {
   final String billNo;
   final BillStatus status;
   final double grossTotal;
+  final double gstRatePercent;
   final String createdAt;
+  final String customerName;
+  final String village;
+  final String mobile;
+  final String district;
   final String? cancelledAt;
   final List<BillLineDetail> lines;
+}
+
+class InvoiceProfileSettings {
+  const InvoiceProfileSettings({
+    required this.shopName,
+    required this.address,
+    required this.mobile,
+    required this.gstNo,
+    required this.fertiRegnNo,
+  });
+
+  final String shopName;
+  final String address;
+  final String mobile;
+  final String gstNo;
+  final String fertiRegnNo;
 }
 
 class StockMovementRecord {
