@@ -111,6 +111,28 @@ class _BillingPageState extends State<BillingPage> {
     return null;
   }
 
+  String _formatPacking(ItemRecord item) {
+    final weight = item.packingWeight;
+    if (weight == null) {
+      return '-';
+    }
+    final formattedWeight = weight % 1 == 0
+        ? weight.toStringAsFixed(0)
+        : weight.toStringAsFixed(2);
+    final unit = item.packingUnit?.trim();
+    if (unit == null || unit.isEmpty) {
+      return formattedWeight;
+    }
+    return '$formattedWeight $unit';
+  }
+
+  double _effectiveUnitPrice(BillLineEditor line, ItemRecord item) {
+    final manualPrice = widget.manualPriceOverrideEnabled
+        ? double.tryParse(line.priceController.text.trim())
+        : null;
+    return manualPrice ?? item.currentPrice;
+  }
+
   double _calculateDraftTotal() {
     var total = 0.0;
     for (final line in _lines) {
@@ -225,6 +247,12 @@ class _BillingPageState extends State<BillingPage> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
+
+    const unitPriceColumnWidth = 140.0;
+    const qtyColumnWidth = 110.0;
+    const lineTotalColumnWidth = 160.0;
+    const actionColumnWidth = 32.0;
+    const qtyInputWidth = 72.0;
 
     return Padding(
       padding: const EdgeInsets.all(24),
@@ -414,9 +442,10 @@ class _BillingPageState extends State<BillingPage> {
                             horizontal: 16,
                             vertical: 10,
                           ),
-                          child: const Row(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Expanded(
+                              const Expanded(
                                 flex: 4,
                                 child: Text(
                                   'ITEM',
@@ -428,10 +457,10 @@ class _BillingPageState extends State<BillingPage> {
                                   ),
                                 ),
                               ),
-                              Expanded(
+                              const Expanded(
                                 flex: 2,
                                 child: Text(
-                                  'QTY',
+                                  'HSN CODE',
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -440,10 +469,22 @@ class _BillingPageState extends State<BillingPage> {
                                   ),
                                 ),
                               ),
-                              Expanded(
+                              const Expanded(
                                 flex: 2,
                                 child: Text(
-                                  'DEFAULT',
+                                  'PACKING',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: unitPriceColumnWidth,
+                                child: Text(
+                                  'UNIT PRICE',
                                   textAlign: TextAlign.right,
                                   style: TextStyle(
                                     fontSize: 11,
@@ -453,7 +494,33 @@ class _BillingPageState extends State<BillingPage> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 36),
+                              SizedBox(
+                                width: qtyColumnWidth,
+                                child: Text(
+                                  'QTY',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: lineTotalColumnWidth,
+                                child: Text(
+                                  'LINE TOTAL',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: actionColumnWidth),
                             ],
                           ),
                         ),
@@ -471,9 +538,10 @@ class _BillingPageState extends State<BillingPage> {
                               return Padding(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 16,
-                                  vertical: 8,
+                                  vertical: 10,
                                 ),
                                 child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
                                       flex: 4,
@@ -482,17 +550,10 @@ class _BillingPageState extends State<BillingPage> {
                                         children: [
                                           Text(
                                             item.name,
+                                            overflow: TextOverflow.ellipsis,
                                             style: const TextStyle(
                                               fontSize: 13,
                                               fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Stock: ${item.currentStock}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: AppColors.textTertiary,
                                             ),
                                           ),
                                         ],
@@ -500,37 +561,89 @@ class _BillingPageState extends State<BillingPage> {
                                     ),
                                     Expanded(
                                       flex: 2,
-                                      child: TextField(
-                                        controller: line.qtyController,
-                                        keyboardType: TextInputType.number,
-                                        onChanged: (_) => setState(() {}),
-                                        decoration: const InputDecoration(
-                                          isDense: true,
-                                          labelText: 'Qty',
+                                      child: Text(
+                                        item.hsnCode?.trim().isNotEmpty == true
+                                            ? item.hsnCode!
+                                            : '-',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
                                     Expanded(
                                       flex: 2,
                                       child: Text(
-                                        formatCurrency(item.currentPrice),
-                                        textAlign: TextAlign.right,
+                                        _formatPacking(item),
+                                        overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 13,
+                                          fontSize: 12,
                                           color: AppColors.textSecondary,
                                         ),
                                       ),
                                     ),
                                     SizedBox(
-                                      width: 36,
+                                      width: unitPriceColumnWidth,
+                                      child: Text(
+                                        formatCurrency(_effectiveUnitPrice(line, item)),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: qtyColumnWidth,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: SizedBox(
+                                          width: qtyInputWidth,
+                                          child: TextField(
+                                            controller: line.qtyController,
+                                            keyboardType: TextInputType.number,
+                                            onChanged: (_) => setState(() {}),
+                                            textAlign: TextAlign.right,
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                              hintText: '0',
+                                              contentPadding: EdgeInsets.symmetric(
+                                                horizontal: 10,
+                                                vertical: 8,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: lineTotalColumnWidth,
+                                      child: Text(
+                                        formatCurrency(
+                                          _effectiveUnitPrice(line, item) *
+                                              (int.tryParse(
+                                                    line.qtyController.text.trim(),
+                                                  ) ??
+                                                  0),
+                                        ),
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: actionColumnWidth,
                                       child: IconButton(
                                         onPressed: () => _removeLine(line),
                                         icon: const Icon(Icons.close, size: 16),
                                         style: IconButton.styleFrom(
                                           foregroundColor: AppColors.textTertiary,
-                                          minimumSize: const Size(28, 28),
-                                          padding: const EdgeInsets.all(4),
+                                          minimumSize: const Size(26, 26),
+                                          padding: const EdgeInsets.all(2),
                                         ),
                                         tooltip: 'Remove item',
                                       ),
