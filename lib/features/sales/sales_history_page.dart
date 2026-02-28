@@ -1,4 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:screenshot/screenshot.dart';
 
 import 'package:stock_manager/data/models/entities.dart';
 import 'package:stock_manager/data/services/app_database.dart';
@@ -102,335 +109,182 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
         return;
       }
 
+      var exporting = false;
       await showDialog<void>(
         context: context,
         builder: (context) {
-          return AlertDialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-            titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            title: Row(
-              children: [
-                const Text('Tax Invoice Preview'),
-                const SizedBox(width: 10),
-                _statusBadge(details.status),
-              ],
-            ),
-            content: SizedBox(
-              width: 1320,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: 1240,
-                  child: SingleChildScrollView(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        border: Border.all(color: AppColors.textPrimary, width: 1.4),
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                insetPadding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 18,
+                ),
+                titlePadding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                title: Row(
+                  children: [
+                    const Text('Tax Invoice Preview'),
+                    const SizedBox(width: 10),
+                    _statusBadge(details.status),
+                  ],
+                ),
+                content: SizedBox(
+                  width: 1320,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          onPressed: exporting
+                              ? null
+                              : () async {
+                                  Uint8List? pdfBytes;
+                                  setDialogState(() {
+                                    exporting = true;
+                                  });
+                                  try {
+                                    pdfBytes = await _generateInvoicePdfBytes(
+                                      details: details,
+                                      invoiceProfile: invoiceProfile,
+                                    ).timeout(const Duration(seconds: 45));
+                                  } catch (_) {
+                                    _showMessage(
+                                      'PDF export timed out. Please try again.',
+                                    );
+                                  } finally {
+                                    if (context.mounted) {
+                                      setDialogState(() {
+                                        exporting = false;
+                                      });
+                                    }
+                                  }
+                                  final generatedPdf = pdfBytes;
+                                  if (generatedPdf == null) {
+                                    return;
+                                  }
+                                  await _saveInvoicePdf(
+                                    billNo: details.billNo,
+                                    pdfBytes: generatedPdf,
+                                  );
+                                },
+                          icon: Icon(
+                            exporting ? Icons.hourglass_empty : Icons.download,
+                            size: 16,
+                          ),
+                          label: Text(
+                            exporting ? 'Generating...' : 'Download PDF',
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: AppColors.textPrimary,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(
-                                  invoiceProfile.shopName.isEmpty
-                                      ? 'SHOP NAME'
-                                      : invoiceProfile.shopName.toUpperCase(),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.3,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  invoiceProfile.address.isEmpty
-                                      ? 'ADDRESS'
-                                      : invoiceProfile.address.toUpperCase(),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Mo:${invoiceProfile.mobile.isEmpty ? '-' : invoiceProfile.mobile}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                              ],
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: SizedBox(
+                            width: 1240,
+                            child: SingleChildScrollView(
+                              child: _buildInvoicePanel(details, invoiceProfile),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: AppColors.textPrimary,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: const Text(
-                              'TAX INVOICE',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                          Table(
-                            border: const TableBorder(
-                              horizontalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              verticalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              bottom: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                            ),
-                            children: [
-                              TableRow(
-                                children: [
-                                  _invoiceInfoCell(
-                                    'Ferti Regn No:${invoiceProfile.fertiRegnNo.isEmpty ? '-' : invoiceProfile.fertiRegnNo}',
-                                  ),
-                                  _invoiceInfoCell('Cash Memo No: ${details.billNo}'),
-                                ],
-                              ),
-                              TableRow(
-                                children: [
-                                  _invoiceInfoCell(
-                                    'GST No:${invoiceProfile.gstNo.isEmpty ? '-' : invoiceProfile.gstNo}',
-                                  ),
-                                  _invoiceInfoCell(
-                                    'Date: ${formatDate(DateTime.parse(details.createdAt))}',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Table(
-                            border: const TableBorder(
-                              horizontalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              verticalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              bottom: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                            ),
-                            columnWidths: const {
-                              0: FlexColumnWidth(2),
-                              1: FlexColumnWidth(1.1),
-                            },
-                            children: [
-                              TableRow(
-                                children: [
-                                  _invoiceInfoCell(
-                                    'Customer name - ${details.customerName.isEmpty ? '-' : details.customerName}',
-                                  ),
-                                  _invoiceInfoCell(
-                                    'MO: ${details.mobile.isEmpty ? '-' : details.mobile}',
-                                  ),
-                                ],
-                              ),
-                              TableRow(
-                                children: [
-                                  _invoiceInfoCell(
-                                    'Village: ${details.village.isEmpty ? '-' : details.village}',
-                                  ),
-                                  _invoiceInfoCell(
-                                    'District: ${details.district.isEmpty ? '-' : details.district}',
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Table(
-                            border: const TableBorder(
-                              horizontalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              verticalInside: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                              bottom: BorderSide(
-                                color: AppColors.textPrimary,
-                                width: 1,
-                              ),
-                            ),
-                            defaultVerticalAlignment:
-                                TableCellVerticalAlignment.middle,
-                            columnWidths: const {
-                              0: FixedColumnWidth(56),
-                              1: FlexColumnWidth(2.3),
-                              2: FlexColumnWidth(1.1),
-                              3: FlexColumnWidth(0.9),
-                              4: FixedColumnWidth(76),
-                              5: FixedColumnWidth(112),
-                              6: FixedColumnWidth(120),
-                              7: FixedColumnWidth(98),
-                              8: FixedColumnWidth(98),
-                              9: FixedColumnWidth(98),
-                              10: FixedColumnWidth(120),
-                            },
-                            children: [
-                              const TableRow(
-                                decoration: BoxDecoration(
-                                  color: AppColors.tableHeaderBg,
-                                ),
-                                children: [
-                                  _InvoiceHeadCell('Sr No'),
-                                  _InvoiceHeadCell('Description of Goods'),
-                                  _InvoiceHeadCell('HSN Code'),
-                                  _InvoiceHeadCell('Pack'),
-                                  _InvoiceHeadCell('Qty (Unit)', align: TextAlign.right),
-                                  _InvoiceHeadCell('Unit Price (Rs.)', align: TextAlign.right),
-                                  _InvoiceHeadCell(
-                                    'Taxable Amt (Rs.)',
-                                    align: TextAlign.right,
-                                  ),
-                                  _InvoiceHeadCell('GST Rate (%)', align: TextAlign.right),
-                                  _InvoiceHeadCell('CGST (Rs.)', align: TextAlign.right),
-                                  _InvoiceHeadCell('SGST (Rs.)', align: TextAlign.right),
-                                  _InvoiceHeadCell('Net Amt (Rs.)', align: TextAlign.right),
-                                ],
-                              ),
-                              for (var i = 0; i < details.lines.length; i++)
-                                _buildInvoiceLineRow(
-                                  srNo: i + 1,
-                                  line: details.lines[i],
-                                  gstRatePercent: details.gstRatePercent,
-                                ),
-                              TableRow(
-                                children: [
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(''),
-                                  const _InvoiceBodyCell(
-                                    'TOTAL',
-                                    align: TextAlign.right,
-                                    bold: true,
-                                  ),
-                                  _InvoiceBodyCell(
-                                    formatCurrency(details.grossTotal),
-                                    align: TextAlign.right,
-                                    bold: true,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: AppColors.textPrimary,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: const Text(
-                              'Note: Fertilizers for Agriculture use only.',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(10, 24, 10, 10),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Signature of Customer',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                const Text(
-                                  'E&OE',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(width: 24),
-                                Text(
-                                  'For ${invoiceProfile.shopName.isEmpty ? 'SHOP NAME' : invoiceProfile.shopName.toUpperCase()}',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              );
+            },
           );
         },
       );
     } catch (e) {
       _showMessage('Failed to load bill details: $e');
     }
+  }
+
+  Future<Uint8List> _generateInvoicePdfBytes({
+    required BillDetails details,
+    required InvoiceProfileSettings invoiceProfile,
+  }) async {
+    final screenshotController = ScreenshotController();
+    final imageBytes = await screenshotController.captureFromWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Material(
+          color: Colors.white,
+          child: SizedBox(
+            width: 1240,
+            child: _buildInvoicePanel(details, invoiceProfile),
+          ),
+        ),
+      ),
+      context: context,
+      delay: const Duration(milliseconds: 80),
+      pixelRatio: 3,
+    ).timeout(const Duration(seconds: 20));
+
+    final document = pw.Document();
+    final image = pw.MemoryImage(imageBytes);
+    document.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(20),
+        build: (pdfContext) {
+          return pw.Center(
+            child: pw.Image(image, fit: pw.BoxFit.contain),
+          );
+        },
+      ),
+    );
+
+    return document.save();
+  }
+
+  Future<void> _saveInvoicePdf({
+    required String billNo,
+    required Uint8List pdfBytes,
+  }) async {
+    try {
+      final fileName = 'Invoice_${_safeFileName(billNo)}.pdf';
+      final downloadDir = await _defaultDownloadsDirectory();
+      final primaryPath =
+          '${downloadDir.path}${Platform.pathSeparator}$fileName';
+      try {
+        await downloadDir.create(recursive: true);
+        await File(primaryPath).writeAsBytes(pdfBytes, flush: true);
+        _showMessage('Invoice PDF saved: $primaryPath');
+        return;
+      } catch (_) {
+        // Fall back when sandbox/policy blocks Downloads.
+      }
+
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final fallbackPath =
+          '${documentsDir.path}${Platform.pathSeparator}$fileName';
+      await File(fallbackPath).writeAsBytes(pdfBytes, flush: true);
+      _showMessage(
+        'Downloads access blocked. Invoice saved in Documents: $fallbackPath',
+      );
+    } catch (e) {
+      _showMessage('Failed to export PDF: $e');
+    }
+  }
+
+  Future<Directory> _defaultDownloadsDirectory() async {
+    final fromProvider = await getDownloadsDirectory();
+    if (fromProvider != null) {
+      return fromProvider;
+    }
+    final home = Platform.environment['HOME'];
+    final userProfile = Platform.environment['USERPROFILE'];
+    final base = home ?? userProfile ?? Directory.current.path;
+    return Directory('$base${Platform.pathSeparator}Downloads');
   }
 
   Future<void> _cancelBill(BillSummary summary) async {
@@ -478,6 +332,10 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  String _safeFileName(String input) {
+    return input.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+  }
+
   Widget _statusBadge(BillStatus status) {
     final isActive = status == BillStatus.active;
     final label = isActive ? 'ACTIVE' : 'CANCELLED';
@@ -495,6 +353,301 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
           color: isActive ? AppColors.success : AppColors.danger,
           letterSpacing: 0.3,
         ),
+      ),
+    );
+  }
+
+  Widget _buildInvoicePanel(
+    BillDetails details,
+    InvoiceProfileSettings invoiceProfile,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.textPrimary, width: 1.4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.textPrimary,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  invoiceProfile.shopName.isEmpty
+                      ? 'SHOP NAME'
+                      : invoiceProfile.shopName.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  invoiceProfile.address.isEmpty
+                      ? 'ADDRESS'
+                      : invoiceProfile.address.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Mo:${invoiceProfile.mobile.isEmpty ? '-' : invoiceProfile.mobile}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.textPrimary,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: const Text(
+              'TAX INVOICE',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Table(
+            border: const TableBorder(
+              horizontalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              verticalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              bottom: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+            ),
+            children: [
+              TableRow(
+                children: [
+                  _invoiceInfoCell(
+                    'Ferti Regn No:${invoiceProfile.fertiRegnNo.isEmpty ? '-' : invoiceProfile.fertiRegnNo}',
+                  ),
+                  _invoiceInfoCell('Cash Memo No: ${details.billNo}'),
+                ],
+              ),
+              TableRow(
+                children: [
+                  _invoiceInfoCell(
+                    'GST No:${invoiceProfile.gstNo.isEmpty ? '-' : invoiceProfile.gstNo}',
+                  ),
+                  _invoiceInfoCell(
+                    'Date: ${formatDate(DateTime.parse(details.createdAt))}',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Table(
+            border: const TableBorder(
+              horizontalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              verticalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              bottom: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+            ),
+            columnWidths: const {
+              0: FlexColumnWidth(2),
+              1: FlexColumnWidth(1.1),
+            },
+            children: [
+              TableRow(
+                children: [
+                  _invoiceInfoCell(
+                    'Customer name - ${details.customerName.isEmpty ? '-' : details.customerName}',
+                  ),
+                  _invoiceInfoCell(
+                    'MO: ${details.mobile.isEmpty ? '-' : details.mobile}',
+                  ),
+                ],
+              ),
+              TableRow(
+                children: [
+                  _invoiceInfoCell(
+                    'Village: ${details.village.isEmpty ? '-' : details.village}',
+                  ),
+                  _invoiceInfoCell(
+                    'District: ${details.district.isEmpty ? '-' : details.district}',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Table(
+            border: const TableBorder(
+              horizontalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              verticalInside: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+              bottom: BorderSide(
+                color: AppColors.textPrimary,
+                width: 1,
+              ),
+            ),
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            columnWidths: const {
+              0: FixedColumnWidth(56),
+              1: FlexColumnWidth(2.3),
+              2: FlexColumnWidth(1.1),
+              3: FlexColumnWidth(0.9),
+              4: FixedColumnWidth(76),
+              5: FixedColumnWidth(112),
+              6: FixedColumnWidth(120),
+              7: FixedColumnWidth(98),
+              8: FixedColumnWidth(98),
+              9: FixedColumnWidth(98),
+              10: FixedColumnWidth(120),
+            },
+            children: [
+              const TableRow(
+                decoration: BoxDecoration(
+                  color: AppColors.tableHeaderBg,
+                ),
+                children: [
+                  _InvoiceHeadCell('Sr No'),
+                  _InvoiceHeadCell('Description of Goods'),
+                  _InvoiceHeadCell('HSN Code'),
+                  _InvoiceHeadCell('Pack'),
+                  _InvoiceHeadCell('Qty (Unit)', align: TextAlign.right),
+                  _InvoiceHeadCell('Unit Price (Rs.)', align: TextAlign.right),
+                  _InvoiceHeadCell('Taxable Amt (Rs.)', align: TextAlign.right),
+                  _InvoiceHeadCell('GST Rate (%)', align: TextAlign.right),
+                  _InvoiceHeadCell('CGST (Rs.)', align: TextAlign.right),
+                  _InvoiceHeadCell('SGST (Rs.)', align: TextAlign.right),
+                  _InvoiceHeadCell('Net Amt (Rs.)', align: TextAlign.right),
+                ],
+              ),
+              for (var i = 0; i < details.lines.length; i++)
+                _buildInvoiceLineRow(
+                  srNo: i + 1,
+                  line: details.lines[i],
+                  gstRatePercent: details.gstRatePercent,
+                ),
+              TableRow(
+                children: [
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(''),
+                  const _InvoiceBodyCell(
+                    'TOTAL',
+                    align: TextAlign.right,
+                    bold: true,
+                  ),
+                  _InvoiceBodyCell(
+                    formatCurrency(details.grossTotal),
+                    align: TextAlign.right,
+                    bold: true,
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            decoration: const BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: AppColors.textPrimary,
+                  width: 1,
+                ),
+              ),
+            ),
+            child: const Text(
+              'Note: Fertilizers for Agriculture use only.',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 24, 10, 10),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Signature of Customer',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const Text(
+                  'E&OE',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 24),
+                Text(
+                  'For ${invoiceProfile.shopName.isEmpty ? 'SHOP NAME' : invoiceProfile.shopName.toUpperCase()}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
