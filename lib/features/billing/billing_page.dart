@@ -443,18 +443,6 @@ class _BillingPageState extends State<BillingPage> {
                               Expanded(
                                 flex: 2,
                                 child: Text(
-                                  'MANUAL PRICE',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textSecondary,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
                                   'DEFAULT',
                                   textAlign: TextAlign.right,
                                   style: TextStyle(
@@ -519,25 +507,6 @@ class _BillingPageState extends State<BillingPage> {
                                         decoration: const InputDecoration(
                                           isDense: true,
                                           labelText: 'Qty',
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextField(
-                                        controller: line.priceController,
-                                        enabled: widget.manualPriceOverrideEnabled,
-                                        keyboardType:
-                                            const TextInputType.numberWithOptions(
-                                              decimal: true,
-                                            ),
-                                        onChanged: (_) => setState(() {}),
-                                        decoration: InputDecoration(
-                                          isDense: true,
-                                          labelText: widget.manualPriceOverrideEnabled
-                                              ? 'Manual'
-                                              : 'Manual (off)',
                                         ),
                                       ),
                                     ),
