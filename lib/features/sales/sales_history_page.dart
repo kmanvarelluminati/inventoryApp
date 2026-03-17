@@ -236,7 +236,8 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(20),
         build: (pdfContext) {
-          return pw.Center(
+          return pw.Align(
+            alignment: pw.Alignment.topCenter,
             child: pw.Image(image, fit: pw.BoxFit.contain),
           );
         },

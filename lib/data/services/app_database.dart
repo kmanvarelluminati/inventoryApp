@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -131,6 +130,10 @@ class AppDatabase {
             'key': 'invoice_shop_ferti_regn_no',
             'value': '',
           });
+          await database.insert('app_settings', {
+            'key': 'bill_sequence',
+            'value': '0',
+          });
         },
         onUpgrade: (database, oldVersion, newVersion) async {
           if (oldVersion < 2) {
@@ -192,6 +195,10 @@ class AppDatabase {
     await db.insert('app_settings', {
       'key': 'invoice_shop_ferti_regn_no',
       'value': '',
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('app_settings', {
+      'key': 'bill_sequence',
+      'value': '0',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
     return AppDatabase._(db);
@@ -532,6 +539,7 @@ class AppDatabase {
     required bool manualPriceOverrideEnabled,
     required double gstRatePercent,
     required BillCustomerDetailsInput customerDetails,
+    DateTime? createdAtOverride,
   }) async {
     if (lines.isEmpty) {
       throw ArgumentError('Bill must contain at least one line item.');
@@ -547,7 +555,7 @@ class AppDatabase {
       }
     }
 
-    final now = _nowIso();
+    final now = _nowIso(createdAtOverride);
 
     return _db.transaction<String>((txn) async {
       final itemsById = <int, ItemRecord>{};
@@ -918,11 +926,30 @@ class AppDatabase {
   }
 
   Future<String> _generateBillNo(DatabaseExecutor db) async {
-    final random = Random();
+    const prefix = 'HA';
+    const width = 6;
 
-    for (var attempt = 0; attempt < 5; attempt++) {
-      final candidate =
-          'B${DateTime.now().millisecondsSinceEpoch}${100 + random.nextInt(900)}';
+    var sequence = 0;
+    final rows = await db.query(
+      'app_settings',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: ['bill_sequence'],
+      limit: 1,
+    );
+
+    if (rows.isEmpty) {
+      await db.insert('app_settings', {
+        'key': 'bill_sequence',
+        'value': '0',
+      });
+    } else {
+      sequence = int.tryParse(_string(rows.first['value'])) ?? 0;
+    }
+
+    for (var attempt = 0; attempt < 10; attempt++) {
+      sequence += 1;
+      final candidate = '$prefix${sequence.toString().padLeft(width, '0')}';
 
       final exists = await db.query(
         'bills',
@@ -933,11 +960,17 @@ class AppDatabase {
       );
 
       if (exists.isEmpty) {
+        await db.update(
+          'app_settings',
+          {'value': sequence.toString()},
+          where: 'key = ?',
+          whereArgs: ['bill_sequence'],
+        );
         return candidate;
       }
     }
 
-    throw StateError('Failed to generate unique bill number.');
+    throw StateError('Failed to generate sequential bill number.');
   }
 }
 
@@ -969,6 +1002,22 @@ String? _nullableString(Object? value) {
   return value?.toString();
 }
 
-String _nowIso() => DateTime.now().toIso8601String();
+String _nowIso([DateTime? override]) {
+  final now = DateTime.now();
+  if (override == null) {
+    return now.toIso8601String();
+  }
+  final adjusted = DateTime(
+    override.year,
+    override.month,
+    override.day,
+    now.hour,
+    now.minute,
+    now.second,
+    now.millisecond,
+    now.microsecond,
+  );
+  return adjusted.toIso8601String();
+}
 
 double _round2(double value) => (value * 100).roundToDouble() / 100;

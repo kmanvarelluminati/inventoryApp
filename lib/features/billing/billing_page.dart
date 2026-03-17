@@ -34,6 +34,7 @@ class _BillingPageState extends State<BillingPage> {
   final TextEditingController _customerMobileController =
       TextEditingController();
   final TextEditingController _districtController = TextEditingController();
+  DateTime _selectedBillDate = DateTime.now();
   int _lineCounter = 0;
 
   @override
@@ -255,6 +256,7 @@ class _BillingPageState extends State<BillingPage> {
           mobile: _customerMobileController.text.trim(),
           district: _districtController.text.trim(),
         ),
+        createdAtOverride: _selectedBillDate,
       );
       _showMessage('Bill created successfully: $billNo');
 
@@ -286,6 +288,21 @@ class _BillingPageState extends State<BillingPage> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _pickBillDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedBillDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (!mounted || picked == null) {
+      return;
+    }
+    setState(() {
+      _selectedBillDate = picked;
+    });
   }
 
   @override
@@ -841,6 +858,19 @@ class _BillingPageState extends State<BillingPage> {
             ),
             child: Row(
               children: [
+                Text(
+                  'Bill Date:',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _submitting ? null : _pickBillDate,
+                  icon: const Icon(Icons.calendar_today, size: 16),
+                  label: Text(formatDate(_selectedBillDate)),
+                ),
                 const Spacer(),
                 Text(
                   'Total: ',
