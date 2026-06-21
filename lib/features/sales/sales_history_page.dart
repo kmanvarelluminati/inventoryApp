@@ -612,7 +612,7 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
             child: const Text(
               'Note: Fertilizers for Agriculture use only.',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -633,7 +633,7 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
                 const Text(
                   'E&OE',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -659,7 +659,7 @@ class _SalesHistoryPageState extends State<SalesHistoryPage> {
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w500,
           color: AppColors.textPrimary,
         ),
@@ -984,7 +984,7 @@ class _InvoiceHeadCell extends StatelessWidget {
         text,
         textAlign: align,
         style: const TextStyle(
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimary,
         ),
@@ -1013,7 +1013,7 @@ class _InvoiceBodyCell extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         textAlign: align,
         style: TextStyle(
-          fontSize: 12.5,
+          fontSize: 14,
           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           color: AppColors.textPrimary,
         ),
