@@ -101,6 +101,7 @@ class _InventoryBillingAppState extends State<InventoryBillingApp> {
         return DailySummaryPage(database: widget.database);
       case 5:
         return SettingsPage(
+          database: widget.database,
           manualPriceOverrideEnabled: _manualPriceOverrideEnabled,
           gstRatePercent: _gstRatePercent,
           invoiceProfile: _invoiceProfile,

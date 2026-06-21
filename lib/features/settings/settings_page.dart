@@ -1,12 +1,16 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'package:stock_manager/data/models/entities.dart';
+import 'package:stock_manager/data/services/app_database.dart';
 import 'package:stock_manager/theme/app_theme.dart';
 import 'package:stock_manager/widgets/desktop_page_header.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({
     super.key,
+    required this.database,
     required this.manualPriceOverrideEnabled,
     required this.gstRatePercent,
     required this.invoiceProfile,
@@ -15,6 +19,7 @@ class SettingsPage extends StatefulWidget {
     required this.onInvoiceProfileChanged,
   });
 
+  final AppDatabase database;
   final bool manualPriceOverrideEnabled;
   final double gstRatePercent;
   final InvoiceProfileSettings invoiceProfile;
@@ -34,6 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
   late final TextEditingController _mobileController;
   late final TextEditingController _gstNoController;
   late final TextEditingController _fertiRegnController;
+  bool _openingDatabaseLocation = false;
   bool _savingGst = false;
   bool _savingInvoiceProfile = false;
 
@@ -135,6 +141,49 @@ class _SettingsPageState extends State<SettingsPage> {
       if (mounted) {
         setState(() {
           _savingInvoiceProfile = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openDatabaseLocation() async {
+    if (_openingDatabaseLocation) {
+      return;
+    }
+
+    final dbPath = widget.database.databasePath;
+    final dbFile = File(dbPath);
+    final targetDirectory = dbFile.parent;
+
+    setState(() {
+      _openingDatabaseLocation = true;
+    });
+
+    try {
+      if (!dbFile.existsSync() && !targetDirectory.existsSync()) {
+        throw StateError('Database location does not exist yet.');
+      }
+
+      if (Platform.isWindows) {
+        await Process.run('explorer.exe', ['/select,$dbPath']);
+      } else if (Platform.isMacOS) {
+        await Process.run('open', ['-R', dbPath]);
+      } else if (Platform.isLinux) {
+        await Process.run('xdg-open', [targetDirectory.path]);
+      } else {
+        throw UnsupportedError('Open location is not supported here.');
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open DB path: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _openingDatabaseLocation = false;
         });
       }
     }
@@ -306,6 +355,83 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
+            const SizedBox(height: 20),
+            const Text(
+              'DATABASE',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Local Database Path',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Use this only to find the local DB file on this PC.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.pageBg,
+                        border: Border.all(color: AppColors.borderLight),
+                        borderRadius: BorderRadius.circular(AppRadius.base),
+                      ),
+                      child: SelectableText(
+                        widget.database.databasePath,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: _openingDatabaseLocation
+                            ? null
+                            : _openDatabaseLocation,
+                        icon: Icon(
+                          _openingDatabaseLocation
+                              ? Icons.hourglass_empty
+                              : Icons.folder_open,
+                          size: 16,
+                        ),
+                        label: Text(
+                          _openingDatabaseLocation ? 'Opening...' : 'Open',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             const Text(
               'INVOICE HEADER',

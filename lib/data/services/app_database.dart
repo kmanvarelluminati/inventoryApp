@@ -5,9 +5,10 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:stock_manager/data/models/entities.dart';
 
 class AppDatabase {
-  AppDatabase._(this._db);
+  AppDatabase._(this._db, this.databasePath);
 
   final Database _db;
+  final String databasePath;
 
   static Future<AppDatabase> open() async {
     sqfliteFfiInit();
@@ -201,7 +202,7 @@ class AppDatabase {
       'value': '0',
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
 
-    return AppDatabase._(db);
+    return AppDatabase._(db, dbPath);
   }
 
   Future<List<ItemRecord>> getItems() async {
